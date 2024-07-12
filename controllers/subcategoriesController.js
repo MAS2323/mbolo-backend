@@ -32,24 +32,31 @@ module.exports = {
   },
 
   createSubcategory: async (req, res) => {
-    try {
-      const { categoryId } = req.params;
-      const { name, description, image, location, contact } = req.body;
+   try {
+     const { name, description, image, location, contactPhone, whatsapp, pdf } =
+       req.body;
 
-      const newSubcategory = new Subcategory({
-        name,
-        description,
-        image,
-        location,
-        contact,
-        category: categoryId,
-      });
-      await newSubcategory.save();
-      res.status(201).json(newSubcategory);
-    } catch (error) {
-      console.error("Error creating subcategory:", error);
-      res.status(500).json({ error: "Failed to create subcategory" });
-    }
+     // Verifica que el nombre esté presente
+     if (!name) {
+       return res.status(400).json({ error: "Name is required" });
+     }
+
+     const subcategory = new Subcategory({
+       name,
+       description,
+       image,
+       location,
+       contactPhone,
+       whatsapp,
+       pdf,
+     });
+
+     await subcategory.save();
+     res.status(201).json(subcategory);
+   } catch (error) {
+     console.error("Error creating subcategory:", error);
+     res.status(500).json({ error: error.message });
+   }
   },
 
   getSubcategoryById: async (req, res) => {

@@ -30,3 +30,20 @@ const subcategorySchema = new mongoose.Schema({
 const Subcategory = mongoose.model("Subcategory", subcategorySchema);
 
 module.exports = Subcategory;
+
+// const mongoose = require("mongoose");
+
+// const SubcategorySchema = new mongoose.Schema({
+//   name: {
+//     type: String,
+//     required: [true, "Path `name` is required."],
+//   },
+//   description: String,
+//   image: String,
+//   location: String,
+//   contactPhone: String,
+//   whatsapp: String,
+//   pdf: String,
+// });
+
+// module.exports = mongoose.model("Subcategory", SubcategorySchema);
