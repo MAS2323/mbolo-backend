@@ -19,6 +19,8 @@ module.exports = {
         product_location,
         description,
         userId,
+        phoneNumber,
+        whatsapp,
       } = req.body;
 
       // Verifica que el usuario exista
@@ -34,6 +36,8 @@ module.exports = {
         imageUrl,
         product_location,
         description,
+        phoneNumber,
+        whatsapp,
         user: userId,
       });
 
@@ -49,7 +53,6 @@ module.exports = {
       res.status(500).json({ error: err.message });
     }
   },
-
   getAllProduct: async (req, res) => {
     try {
       const products = await Product.find().sort({ createdAt: -1 });
