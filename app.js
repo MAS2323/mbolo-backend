@@ -58,7 +58,7 @@ app.use("/products", productRouter);
 app.use("/", userRouter);
 
 // Iniciar el servidor
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3001;
 app.listen(port, () => {
   console.log(`Node js server started on port ${port}!`);
 });
