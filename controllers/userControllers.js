@@ -228,25 +228,16 @@ const updateUser = async (req, res) => {
 };
 
 const getUserById = async (req, res) => {
-  const { id } = req.params; // Obtener el ID del usuario desde los parámetros de la URL
-
   try {
-    // Buscar el usuario en la base de datos por su ID
-    const user = await User.findById(id);
-
-    // Si no se encuentra el usuario, devolver un error 404
+    const user = await User.findById(req.params.id);
     if (!user) {
-      return res.status(404).json({ message: "Usuario no encontrado" });
+      return res.status(404).json({ message: "User not found" });
     }
-
-    // Excluir campos sensibles como la contraseña y la versión del documento
-    const { password, __v, ...userData } = user._doc;
-
-    // Devolver los datos del usuario
-    res.status(200).json({ message: "Usuario encontrado", user: userData });
+    res.status(200).json(user); // Only one response is sent
   } catch (error) {
-    console.error("Error obteniendo usuario por ID:", error);
-    res.status(500).json({ message: "Error al obtener el usuario" });
+    res
+      .status(500)
+      .json({ message: "Error fetching user", error: error.message });
   }
 };
 
