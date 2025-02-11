@@ -1,58 +1,35 @@
 import mongoose from "mongoose";
 
-const ProductSchema = new mongoose.Schema(
+const productSchema = new mongoose.Schema(
   {
-    title: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    supplier: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    price: {
-      type: Number,
-      required: true,
-      trim: true,
-    },
+    title: { type: String, required: true, trim: true },
+    supplier: { type: String, required: true, trim: true },
+    price: { type: Number, required: true, trim: true },
     product_location: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Location", // Referencia a la ubicación del producto
       required: true,
-      trim: true,
     },
-    description: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+    description: { type: String, required: true, trim: true },
     phoneNumber: { type: String, required: true },
     whatsapp: { type: String, required: true },
-    images: [
-      {
-        url: String, // URL de la imagen en Cloudinary
-        public_id: String, // public_id de la imagen en Cloudinary
-      },
-    ],
-    user: {
+    images: [{ url: String, public_id: String }],
+    category: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Category",
       required: true,
     },
-    tienda: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Tienda", // Referencia a la tienda
+    type: {
+      type: String,
+      enum: ["product"], // Solo puede pertenecer a categorías de tipo "product"
+      required: true,
     },
-    favorites: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Favorites",
-      },
-    ],
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    tienda: { type: mongoose.Schema.Types.ObjectId, ref: "Tienda" },
+    favorites: [{ type: mongoose.Schema.Types.ObjectId, ref: "Favorites" }],
   },
   { timestamps: true }
 );
 
-const Product = mongoose.model("Product", ProductSchema);
+const Product = mongoose.model("Product", productSchema);
 export default Product;

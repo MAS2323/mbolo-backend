@@ -109,19 +109,31 @@ export default {
 
   getAllProduct: async (req, res) => {
     try {
-      const products = await Product.find().sort({ createdAt: -1 });
+      const products = await Product.find()
+        .populate("product_location") // Obtiene detalles de la ubicación
+        .sort({ createdAt: -1 });
+
       res.status(200).json(products);
     } catch (error) {
-      res.status(500).json("failed to get the products");
+      console.error("Error al obtener los productos:", error);
+      res.status(500).json({ message: "Fallo al obtener los productos" });
     }
   },
 
   getProduct: async (req, res) => {
     try {
-      const product = await Product.findById(req.params.id);
+      const product = await Product.findById(req.params.id).populate(
+        "product_location"
+      ); // Obtiene detalles de la ubicación
+
+      if (!product) {
+        return res.status(404).json({ message: "Producto no encontrado" });
+      }
+
       res.status(200).json(product);
     } catch (error) {
-      res.status(500).json("failed to get the product");
+      console.error("Error al obtener el producto:", error);
+      res.status(500).json({ message: "Fallo al obtener el producto" });
     }
   },
 

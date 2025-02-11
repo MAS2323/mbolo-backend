@@ -6,10 +6,12 @@ import categoryController from "../controllers/categoryController.js";
 router.post("/", categoryController.createCategory);
 
 // Ruta para obtener todas las categorías
-router.get("/:id", categoryController.getAllCategories);
+router.get("/", categoryController.getAllCategories);
+
 router.get(
   "/:subcategoryId",
   categoryController.getAllCategoriesBySubcategoryId
 );
+router.get("/:id/:type", categoryController.getCategoryByIdAndType);
 
 export default router;

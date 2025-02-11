@@ -3,7 +3,9 @@ dotenv.config();
 // Define createToken function based on the userId
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
-import User from "../models/User.js"; // Asegúrate de que esta ruta esté correcta
+import User from "../models/User.js";
+import mongoose from "mongoose";
+import City from "../models/City.js";
 import { uploadImage, deleteImage } from "../utils/cloudinary.js";
 import fs from "node:fs";
 
@@ -15,35 +17,45 @@ const createToken = (_id) => {
 
 const registerUser = async (req, res) => {
   try {
-    const { userName, email, password, location, mobile, userType } = req.body;
-    const file = req.file; // Asume que estás usando multer para manejar la subida de archivos
+    const { userName, email, password, ciudad, mobile, userType } = req.body;
+    const file = req.file;
 
-    // Verificar si el email ya existe
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res
-        .status(400)
-        .json({ message: "El correo electrónico ya está registrado" });
+    // Verificar si el ID de la ciudad es un ObjectId válido
+    if (!mongoose.Types.ObjectId.isValid(ciudad)) {
+      return res.status(400).json({ message: "ID de ciudad inválido" });
     }
 
-    // Hash del password
+    // Verificar si la ciudad existe en la base de datos
+    const city = await City.findById(ciudad);
+    if (!city) {
+      return res
+        .status(400)
+        .json({ message: "La ciudad seleccionada no existe" });
+    }
+
+    // Verificar si el correo electrónico ya está registrado
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ message: "El correo ya está registrado" });
+    }
+
+    // Hash de la contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
-
     let imageResult = null;
-    if (file) {
-      const folderName = "userPerfil"; // Nombre de la carpeta en Cloudinary
 
+    // Manejo de imagen de perfil
+    if (file) {
+      const folderName = "userPerfil";
       try {
-        // Subir la imagen a Cloudinary
         imageResult = await uploadImage(file.path, folderName);
-        fs.unlinkSync(file.path); // Eliminar el archivo temporal
+        fs.unlinkSync(file.path); // Eliminar la imagen temporal
       } catch (error) {
         console.error("Error al subir la imagen:", error);
         return res.status(500).json({ message: "Error al subir la imagen" });
       }
     }
 
-    // Crear un nuevo usuario
+    // Crear el nuevo usuario con ID y nombre de la ciudad
     const newUser = new User({
       userName,
       email,
@@ -51,28 +63,21 @@ const registerUser = async (req, res) => {
       image: imageResult
         ? { url: imageResult.url, public_id: imageResult.public_id }
         : null,
-      location,
+      ciudad: {
+        id: ciudad, // Almacena el ID de la ciudad
+        name: city.name, // Almacena el nombre de la ciudad
+      },
       mobile,
-      userType,
+      userType: userType || "user", // Establecer tipo de usuario si no se pasa
     });
 
     await newUser.save();
     res.status(200).json({ message: "Usuario registrado con éxito" });
   } catch (error) {
-    console.error("Error registrando usuario", error);
+    console.error("Error registrando usuario:", error);
 
-    // Manejo específico del error de clave duplicada
     if (error.code === 11000) {
-      return res
-        .status(400)
-        .json({ message: "El correo electrónico ya está registrado" });
-    }
-
-    // Si hubo un error y se subió una imagen, eliminarla de Cloudinary
-    if (imageResult) {
-      await deleteImage(imageResult.public_id).catch((err) =>
-        console.error("Error al eliminar imagen de Cloudinary:", err)
-      );
+      return res.status(400).json({ message: "El correo ya está registrado" });
     }
 
     res.status(500).json({ message: "Error registrando el usuario" });
@@ -147,18 +152,16 @@ const deleteUser = async (req, res) => {
 };
 
 const updateUser = async (req, res) => {
-  const { id } = req.params; // ID del usuario a actualizar
-  const { userName, email, password, location, mobile, userType } = req.body;
-  const file = req.file; // Nueva imagen de perfil (si se proporciona)
+  const { id } = req.params;
+  const { userName, email, password, city, mobile, userType } = req.body;
+  const file = req.file;
 
   try {
-    // Buscar el usuario existente
     const user = await User.findById(id);
     if (!user) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
-    // Verificar si el nuevo email ya está en uso por otro usuario
     if (email && email !== user.email) {
       const existingUser = await User.findOne({ email });
       if (existingUser) {
@@ -169,26 +172,20 @@ const updateUser = async (req, res) => {
       user.email = email;
     }
 
-    // Actualizar campos del usuario
     if (userName) user.userName = userName;
-    if (location) user.location = location;
+    if (city) user.city = city;
     if (mobile) user.mobile = mobile;
     if (userType) user.userType = userType;
 
-    // Actualizar la contraseña si se proporciona
     if (password) {
       const hashedPassword = await bcrypt.hash(password, 10);
       user.password = hashedPassword;
     }
 
-    // Manejo de la imagen de perfil
     if (file) {
-      const folderName = "userPerfil"; // Carpeta en Cloudinary
-
-      // Subir la nueva imagen a Cloudinary
+      const folderName = "userPerfil";
       const imageResult = await uploadImage(file.path, folderName);
 
-      // Eliminar la imagen anterior de Cloudinary si existe
       if (user.image && user.image.public_id) {
         await deleteImage(user.image.public_id).catch((err) =>
           console.error(
@@ -198,31 +195,14 @@ const updateUser = async (req, res) => {
         );
       }
 
-      // Actualizar la información de la imagen en el usuario
-      user.image = {
-        url: imageResult.url,
-        public_id: imageResult.public_id,
-      };
-
-      // Eliminar el archivo temporal del servidor
+      user.image = { url: imageResult.url, public_id: imageResult.public_id };
       fs.unlinkSync(file.path);
     }
 
-    // Guardar los cambios en la base de datos
     await user.save();
-
-    // Responder con el usuario actualizado
-    res.status(200).json({ message: "Usuario actualizado con éxito", user });
+    res.status(200).json({ message: "Usuario actualizado con éxito" });
   } catch (error) {
-    console.error("Error actualizando usuario:", error);
-
-    // Manejo de errores específicos
-    if (error.code === 11000) {
-      return res
-        .status(400)
-        .json({ message: "El correo electrónico ya está en uso" });
-    }
-
+    console.error("Error actualizando usuario", error);
     res.status(500).json({ message: "Error actualizando el usuario" });
   }
 };
