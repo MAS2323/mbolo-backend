@@ -7,7 +7,7 @@ const productSchema = new mongoose.Schema(
     price: { type: Number, required: true, trim: true },
     product_location: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Location", // Referencia a la ubicación del producto
+      ref: "Location",
       required: true,
     },
     description: { type: String, required: true, trim: true },
