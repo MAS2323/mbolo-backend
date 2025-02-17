@@ -3,16 +3,15 @@ import mongoose from "mongoose";
 const locationSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
-    direccion: { type: String, required: true },
-    ciudad: {
+    type: { type: String, enum: ["City", "Province"], required: true },
+    parentId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "City",
-      required: true,
-    },
+      ref: "Location",
+      default: null,
+    }, // Referencia a la provincia si es una ciudad
   },
   { timestamps: true }
 );
 
 const Location = mongoose.model("Location", locationSchema);
-
 export default Location;
