@@ -15,6 +15,7 @@ import orderRoutes from "./routes/orderRoutes.js";
 import subcategoriesRouter from "./routes/subcategories.js";
 import locationRoutes from "./routes/locationRoutes.js";
 import cityRoutes from "./routes/cityRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -58,6 +59,7 @@ app.use("/categories", categoriesRouter);
 app.use("/banners", bannerRoutes);
 app.use("/products", productRouter);
 app.use("/", userRouter);
+app.use("/", authRoutes);
 app.use("/locations", locationRoutes);
 app.use("/cities", cityRoutes);
 // Iniciar el servidor

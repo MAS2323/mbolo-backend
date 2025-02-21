@@ -1,15 +1,12 @@
 import express from "express";
-const router = express.Router();
-import upload from "../utils/multer.js";
 import userController from "../controllers/userControllers.js";
-// const authMiddleware = require("../../middleware/auth");
+import authMiddleware from "../middleware/authMiddleware.js";
 
-router.post("/register", userController.registerUser);
-router.post("/login", userController.loginUser);
-router.get("/users/:userId", userController.getUsersExceptLoggedInUser);
-router.put("/user/:id", upload.single("image"), userController.updateUser);
-router.get("/users", userController.getAllUsers); // Ruta protegida
-router.get("/user/:id", userController.getUserById); // Ruta protegida
-router.delete("/user/:id", userController.deleteUser); // Ruta protegida
+const router = express.Router();
+
+router.get("/", authMiddleware, userController.getAllUsers);
+router.get("/:id", authMiddleware, userController.getUserById);
+router.put("/:id", authMiddleware, userController.updateUser);
+router.delete("/:id", authMiddleware, userController.deleteUser);
 
 export default router;

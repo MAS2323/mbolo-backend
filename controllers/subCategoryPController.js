@@ -1,4 +1,4 @@
-import SubCategoryP from "../models/SubcategoryP.js";
+import SubCategoryP from "../models/Subcategoryp.js";
 import Category from "../models/Category.js"; // Para validaciones
 
 // Crear una nueva subcategoría

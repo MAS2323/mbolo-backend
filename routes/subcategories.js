@@ -7,6 +7,10 @@ router.get(
   "/category/:categoryId",
   subcategoriesController.getSubcategoriesByCategory
 );
+router.get(
+  "/categories/:categoryId",
+  subcategoriesController.getSubcategoriesByCategoryMenu
+);
 router.post(
   "/category/:categoryId",
   upload.array("images", 6),

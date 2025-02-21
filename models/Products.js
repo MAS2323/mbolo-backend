@@ -4,7 +4,7 @@ const productSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
     supplier: { type: String, required: true, trim: true },
-    price: { type: Number, required: true, trim: true },
+    price: { type: Number, required: true },
     product_location: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Location",
@@ -18,6 +18,15 @@ const productSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
       required: true,
+    },
+    subcategory: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Subcategoryp",
+      required: true,
+    },
+    customFields: {
+      type: mongoose.Schema.Types.Mixed, // Permite almacenar campos dinámicos
+      default: {},
     },
     type: {
       type: String,

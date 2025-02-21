@@ -1,4 +1,5 @@
-import Subcategory from "../models/Subcategory.js";
+import Subcategory from "../models/Subcategoryp.js";
+import Category from "../models/Category.js";
 import mongoose from "mongoose";
 import fs from "node:fs";
 import { uploadImage, deleteImage, updateImage } from "../utils/cloudinary.js";
@@ -7,6 +8,44 @@ export default {
    * Obtiene subcategorías por categoría.
    */
   getSubcategoriesByCategory: async (req, res) => {
+    const { categoryId } = req.params;
+    const { subcategoryId } = req.query; // Se obtiene el ID de la subcategoría desde la query
+
+    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+      return res.status(400).json({ message: "Invalid categoryId format" });
+    }
+
+    try {
+      // Verificar si la categoría existe
+      const categoryExists = await Category.findById(categoryId);
+      if (!categoryExists) {
+        return res.status(404).json({ message: "Category not found" });
+      }
+
+      let query = { category: categoryId };
+
+      // Si se especifica un subcategoryId, buscar solo esa subcategoría
+      if (subcategoryId) {
+        if (!mongoose.Types.ObjectId.isValid(subcategoryId)) {
+          return res
+            .status(400)
+            .json({ message: "Invalid subcategoryId format" });
+        }
+        query._id = subcategoryId;
+      }
+
+      const subcategories = await Subcategory.find(query);
+
+      if (subcategories.length === 0) {
+        return res.status(404).json({ message: "Subcategory not found" });
+      }
+
+      res.json(subcategoryId ? subcategories[0] : subcategories);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  },
+  getSubcategoriesByCategoryMenu: async (req, res) => {
     const { categoryId } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(categoryId)) {
@@ -18,6 +57,19 @@ export default {
       res.json(subcategories);
     } catch (error) {
       res.status(500).json({ error: error.message });
+    }
+  },
+  // Obtener todas las subcategorías
+  getSubCategories: async (req, res) => {
+    try {
+      const subCategories = await Subcategory.find().populate(
+        "category",
+        "name"
+      ); // Populate para mostrar la categoría
+      res.status(200).json(subCategories);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error al obtener las subcategorías" });
     }
   },
 
