@@ -248,13 +248,17 @@ const getAllUsers = async (req, res) => {
   }
 };
 
-const getUserById = async (req, res) => {
+const getUserData = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
+    // const user = await User.findById(req.params.id);
+    const { userId } = req.params;
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
-    res.status(200).json(user);
+    res.json({ userId: user._id, name: user.name, email: user.email });
+    const { password, __v, createdAt, updatedAt, ...userData } = user._doc;
+    // res.status(200).json(user);
   } catch (error) {
     res
       .status(500)
@@ -341,4 +345,4 @@ const deleteUser = async (req, res) => {
   }
 };
 
-export default { getAllUsers, getUserById, updateUser, deleteUser };
+export default { getAllUsers, getUserData, updateUser, deleteUser };

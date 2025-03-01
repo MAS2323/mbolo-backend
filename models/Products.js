@@ -18,19 +18,19 @@ const productSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
       required: true,
-    },
+    }, // ✅ Asegúrate de tener esto
     subcategory: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Subcategoryp",
       required: true,
     },
     customFields: {
-      type: mongoose.Schema.Types.Mixed, // Permite almacenar campos dinámicos
+      type: mongoose.Schema.Types.Mixed,
       default: {},
     },
     type: {
       type: String,
-      enum: ["product"], // Solo puede pertenecer a categorías de tipo "product"
+      enum: ["product"],
       required: true,
     },
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },

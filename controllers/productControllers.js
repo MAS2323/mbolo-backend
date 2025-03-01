@@ -1,5 +1,7 @@
 import Product from "../models/Products.js";
 import { uploadImage, deleteImage, updateImage } from "../utils/cloudinary.js";
+import mongoose from "mongoose";
+import User from "../models/User.js";
 import fs from "node:fs";
 
 export default {
@@ -13,45 +15,50 @@ export default {
         description,
         phoneNumber,
         whatsapp,
-        category,
         subcategory,
-        customFields, // Nuevo campo personalizado
-        type, // Asegurándonos de que 'type' está presente
+        customFields,
       } = req.body;
 
-      // Validación de campos requeridos
-      const requiredFields = [
-        title,
-        supplier,
-        price,
-        product_location,
-        description,
-        phoneNumber,
-        whatsapp,
-        category,
-        subcategory,
-      ];
-      if (requiredFields.some((field) => !field)) {
+      const userId = req.params.userId; // Obtener el userId desde los parámetros de la URL
+
+      // Validar campos obligatorios
+      if (
+        !title ||
+        !supplier ||
+        !price ||
+        !product_location ||
+        !description ||
+        !phoneNumber ||
+        !whatsapp ||
+        !subcategory ||
+        !userId
+      ) {
         return res
           .status(400)
           .json({ message: "Todos los campos son obligatorios" });
       }
 
-      // Validación de tipo de producto
-      if (type !== "product") {
-        return res
-          .status(400)
-          .json({ message: "El campo 'type' debe ser 'product'" });
-      }
-
-      // Validación de archivos (imágenes)
+      // Validar imágenes
       if (!req.files || req.files.length === 0) {
         return res
           .status(400)
           .json({ message: "Debes subir al menos una imagen" });
       }
 
-      const folderName = "productos_mbolo"; // Nombre de la carpeta en Cloudinary
+      // Validar ID de usuario
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        return res
+          .status(400)
+          .json({ message: "El ID de usuario no es válido" });
+      }
+
+      // Verificar si el usuario existe
+      const userExists = await User.findById(userId);
+      if (!userExists) {
+        return res.status(404).json({ message: "El usuario no existe" });
+      }
+
+      const folderName = "productos_mbolo";
       const images = [];
 
       // Subir imágenes a Cloudinary
@@ -62,10 +69,9 @@ export default {
             url: result.url,
             public_id: result.public_id,
           });
-          fs.unlinkSync(file.path); // Eliminar el archivo temporal
         } catch (error) {
           console.error("Error al subir la imagen:", error);
-          // Si falla la subida de una imagen, eliminar las imágenes ya subidas
+          // Eliminar imágenes ya subidas en caso de error
           if (images.length > 0) {
             for (const image of images) {
               await deleteImage(image.public_id).catch((err) =>
@@ -77,6 +83,8 @@ export default {
             error: "Error al subir la imagen a Cloudinary",
             details: error.message,
           });
+        } finally {
+          fs.unlinkSync(file.path); // Eliminar archivo temporal
         }
       }
 
@@ -90,14 +98,19 @@ export default {
         phoneNumber,
         whatsapp,
         images,
-        category,
         subcategory,
-        customFields: customFields || {}, // Agregar campos personalizados
-        type: "product", // Aseguramos que el tipo es siempre 'product'
-        user: req.user?._id || null, // Asumiendo que el usuario está autenticado
+        customFields: customFields || {},
+        type: "product", // Valor por defecto
+        user: userId,
       });
 
       const savedProduct = await newProduct.save();
+
+      // Actualizar el usuario con el nuevo producto
+      await User.findByIdAndUpdate(userId, {
+        $push: { products: savedProduct._id },
+      });
+
       res.status(201).json({
         message: "Producto creado exitosamente",
         product: savedProduct,
@@ -112,19 +125,19 @@ export default {
       }
       res.status(500).json({
         error: "Error interno del servidor",
-        details: error.message,
+        details:
+          process.env.NODE_ENV === "development"
+            ? error.message
+            : "Contacta al soporte técnico",
       });
     }
   },
-
   getAllProduct: async (req, res) => {
     try {
       const products = await Product.find()
         .populate("product_location") // Obtiene detalles de la ubicación
-        .populate("category") // Obtiene detalles de la categoría
         .populate("subcategory") // Obtiene detalles de la subcategoría
         .sort({ createdAt: -1 });
-
       res.status(200).json(products);
     } catch (error) {
       console.error("Error al obtener los productos:", error);
@@ -136,13 +149,10 @@ export default {
     try {
       const product = await Product.findById(req.params.id)
         .populate("product_location") // Obtiene detalles de la ubicación
-        .populate("category") // Obtiene detalles de la categoría
         .populate("subcategory"); // Obtiene detalles de la subcategoría
-
       if (!product) {
         return res.status(404).json({ message: "Producto no encontrado" });
       }
-
       res.status(200).json(product);
     } catch (error) {
       console.error("Error al obtener el producto:", error);
@@ -215,7 +225,6 @@ export default {
           },
         },
       ]);
-
       res.status(200).json(result);
     } catch (error) {
       console.error("Error fetching products:", error);

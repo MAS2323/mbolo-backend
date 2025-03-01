@@ -1,12 +1,23 @@
 import multer from "multer";
 import path from "path";
-import fs from "node:fs";
-import express from "express";
-const app = express();
+import fs from "fs";
+import { fileURLToPath } from "url";
+
+// Obtener __dirname compatible con ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Crear la carpeta 'public/uploads' si no existe
+const uploadsDir = path.join(__dirname, "public", "uploads");
+
+// Crear la carpeta y los directorios intermedios si no existen
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "./public/uploads");
+    cb(null, uploadsDir); // Guardar en la carpeta uploads
   },
   filename: function (req, file, cb) {
     const ext = path.extname(file.originalname);
@@ -15,19 +26,5 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage: storage });
-
-app.post("/images/multi", upload.array("images", 6), (req, res) => {
-  req.files.map(saveImage);
-  res.send("Termina Multi");
-});
-
-function saveImage(file) {
-  const newPath = path.join(__dirname, "./public/uploads", file.originalname);
-  if (fs.existsSync(file.path)) {
-    fs.renameSync(file.path, newPath); // Renombrar y mover archivo
-  }
-
-  return newPath;
-}
 
 export default upload;

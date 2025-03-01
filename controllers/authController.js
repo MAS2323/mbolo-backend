@@ -69,9 +69,8 @@ const registerUser = async (req, res) => {
 };
 
 const loginUser = async (req, res) => {
+  const { email, password } = req.body;
   try {
-    const { email, password } = req.body;
-
     // Buscar el usuario por correo electrónico
     const user = await User.findOne({ email });
     if (!user) {
@@ -87,17 +86,18 @@ const loginUser = async (req, res) => {
     }
 
     // Generar token JWT
-    const userToken = jwt.sign(
-      { user: { id: user._id } },
-      process.env.JWT_SECRET,
-      { expiresIn: "1h" }
-    );
-
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
+    });
+    // res.json({ token });
     // Excluir campos sensibles del objeto de usuario
     const { password: _, __v, createdAt, updatedAt, ...userData } = user._doc;
-    res
-      .status(200)
-      .json({ ...userData, token: userToken, userType: user.userType });
+    res.status(200).json({
+      ...userData,
+      userId: user._id,
+      token: token,
+      userType: user.userType,
+    });
   } catch (error) {
     console.error("Error in loginUser:", error);
     res.status(500).json({ message: "Error al iniciar sesión" });

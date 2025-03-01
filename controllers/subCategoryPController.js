@@ -1,5 +1,7 @@
 import SubCategoryP from "../models/Subcategoryp.js";
 import Category from "../models/Category.js"; // Para validaciones
+import Subcategoryp from "../models/Subcategoryp.js";
+import Product from "../models/Products.js";
 
 // Crear una nueva subcategoría
 export const createSubCategoryP = async (req, res) => {
@@ -74,33 +76,57 @@ export const getSubCategoriesByCategory = async (req, res) => {
   const { categoryId } = req.params;
 
   try {
-    // Verificar si la categoría existe y es del tipo "menu"
-    const category = await Category.findById(categoryId);
-    console.log("Category found:", category); // Verificar la categoría obtenida
+    // Buscar las subcategorías que pertenezcan a la categoría dada
+    const subcategories = await Subcategoryp.find({ category: categoryId });
 
-    if (!category) {
-      return res.status(404).json({ message: "Categoría no encontrada" });
-    }
-
-    if (category.type !== "menu") {
-      return res
-        .status(400)
-        .json({ message: "La categoría no es de tipo 'menu'" });
-    }
-
-    // Obtener las subcategorías asociadas a la categoría seleccionada
-    const subCategories = await SubCategoryP.find({ category: categoryId });
-
-    if (subCategories.length === 0) {
+    if (!subcategories.length) {
       return res.status(404).json({
         message: "No se encontraron subcategorías para esta categoría",
       });
     }
 
-    // Responder con las subcategorías encontradas
-    res.status(200).json(subCategories);
+    res.status(200).json(subcategories);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Error al obtener las subcategorías" });
+    console.error("Error al obtener subcategorías:", error);
+    res.status(500).json({ message: "Error interno del servidor" });
+  }
+};
+
+export const getProductsByCategoryAndSubcategory = async (req, res) => {
+  const { category, subcategory } = req.query;
+
+  try {
+    let filter = {};
+
+    if (category) {
+      if (!mongoose.Types.ObjectId.isValid(category)) {
+        return res.status(400).json({ message: "ID de categoría inválido" });
+      }
+      filter["subcategory.category"] = mongoose.Types.ObjectId(category);
+    }
+
+    if (subcategory) {
+      if (!mongoose.Types.ObjectId.isValid(subcategory)) {
+        return res.status(400).json({ message: "ID de subcategoría inválido" });
+      }
+      filter.subcategory = mongoose.Types.ObjectId(subcategory);
+    }
+
+    const products = await Product.find(filter)
+      .populate("product_location")
+      .populate("subcategory")
+      .sort({ createdAt: -1 });
+
+    if (products.length === 0) {
+      return res.status(404).json({
+        message:
+          "No se encontraron productos para esta categoría y subcategoría",
+      });
+    }
+
+    res.status(200).json(products);
+  } catch (error) {
+    console.error("Error al obtener productos:", error);
+    res.status(500).json({ message: "Error interno del servidor" });
   }
 };

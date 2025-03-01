@@ -6,13 +6,11 @@ const authenticateUser = async (req, res, next) => {
   if (!token) {
     return res.status(401).json({ message: "Por favor, autentícate." });
   }
-
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // 🔹 Aquí corregimos el acceso al ID
-    const user = await User.findById(decoded.user.id);
-
+    // Access the `id` field directly from the decoded payload
+    const user = await User.findById(decoded.id); // Use `decoded.id` instead of `decoded.user.userId`
     if (!user) {
       return res.status(401).json({ message: "Usuario no encontrado." });
     }

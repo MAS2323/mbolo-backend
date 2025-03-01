@@ -12,7 +12,7 @@ import categoriesRouter from "./routes/categories.js";
 import favoritesRoutes from "./routes/favoritesRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
-import subcategoriesRouter from "./routes/subcategories.js";
+import subcategoriesRouter from "./routes/subCategoryPRoutes.js";
 import locationRoutes from "./routes/locationRoutes.js";
 import cityRoutes from "./routes/cityRoutes.js";
 import authRoutes from "./routes/authRoutes.js";

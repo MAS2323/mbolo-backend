@@ -8,12 +8,24 @@ router.get("/", productController.getAllProduct);
 router.get("/:id", productController.getProduct);
 router.get("/search/:key", productController.searchProduct);
 router.put("/:id", productController.updateProduct);
+// router.get(
+//   "/filter/products",
+//   productController.getProductsByCategoryAndSubcategory
+// );
+
 router.post(
-  "/",
-  authenticateUser,
+  "/:userId",
   upload.array("images", 6),
   productController.createProduct
 );
 router.delete("/:id", productController.deleteProduct); // Nueva ruta para eliminar producto
 
 export default router;
+
+/**
+ * rutas de getproductsbycategoryandsubcategory
+ * /products/filter?category=categoryId
+ * /products/filter?subcategory=subcategoryId
+ * /products/filter?category=categoryId&subcategory=subcategoryId
+ *
+ */
