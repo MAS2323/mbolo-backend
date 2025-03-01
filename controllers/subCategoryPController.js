@@ -98,6 +98,7 @@ export const getProductsByCategoryAndSubcategory = async (req, res) => {
   try {
     let filter = {};
 
+    // Filtrar por categoría si se proporciona
     if (category) {
       if (!mongoose.Types.ObjectId.isValid(category)) {
         return res.status(400).json({ message: "ID de categoría inválido" });
@@ -105,6 +106,7 @@ export const getProductsByCategoryAndSubcategory = async (req, res) => {
       filter["subcategory.category"] = mongoose.Types.ObjectId(category);
     }
 
+    // Filtrar por subcategoría si se proporciona
     if (subcategory) {
       if (!mongoose.Types.ObjectId.isValid(subcategory)) {
         return res.status(400).json({ message: "ID de subcategoría inválido" });
@@ -112,11 +114,13 @@ export const getProductsByCategoryAndSubcategory = async (req, res) => {
       filter.subcategory = mongoose.Types.ObjectId(subcategory);
     }
 
+    // Buscar productos con el filtro aplicado
     const products = await Product.find(filter)
       .populate("product_location")
       .populate("subcategory")
       .sort({ createdAt: -1 });
 
+    // Si no se encuentran productos
     if (products.length === 0) {
       return res.status(404).json({
         message:
