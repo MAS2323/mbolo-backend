@@ -74,12 +74,12 @@ export const updateSubCategoryP = async (req, res) => {
 
 export const getSubCategoriesByCategory = async (req, res) => {
   const { categoryId } = req.params;
-
+  console.log("Received categoryId:", categoryId); // Para verificar
   try {
     // Buscar las subcategorías que pertenezcan a la categoría dada
     const subcategories = await Subcategoryp.find({ category: categoryId });
 
-    if (!subcategories.length) {
+    if (!subcategories || subcategories.length === 0) {
       return res.status(404).json({
         message: "No se encontraron subcategorías para esta categoría",
       });
