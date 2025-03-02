@@ -17,7 +17,7 @@ const productSchema = new mongoose.Schema(
     category: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
-      required: true,
+      // required: true,
     }, // ✅ Asegúrate de tener esto
     subcategory: {
       type: mongoose.Schema.Types.ObjectId,
