@@ -12,6 +12,10 @@ router.put("/:id", productController.updateProduct);
 //   "/filter/products",
 //   productController.getProductsByCategoryAndSubcategory
 // );
+router.get(
+  "/subcategory/:subcategoryId",
+  productController.getProductsByCategoryAndSubcategory
+);
 
 router.post(
   "/:userId",

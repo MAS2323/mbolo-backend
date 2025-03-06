@@ -210,6 +210,56 @@ export default {
     }
   },
 
+  getProductsByCategoryAndSubcategory: async (req, res) => {
+    const { category, subcategory } = req.query;
+
+    try {
+      let filter = {};
+
+      // Filtrar por categoría si se proporciona
+      if (category) {
+        if (!mongoose.Types.ObjectId.isValid(category)) {
+          return res.status(400).json({ message: "ID de categoría inválido" });
+        }
+        filter["subcategory.category"] = mongoose.Types.ObjectId(category);
+      }
+
+      // Filtrar por subcategoría si se proporciona
+      if (subcategory) {
+        if (!mongoose.Types.ObjectId.isValid(subcategory)) {
+          return res
+            .status(400)
+            .json({ message: "ID de subcategoría inválido" });
+        }
+        filter.subcategory = mongoose.Types.ObjectId(subcategory);
+      }
+
+      // Buscar productos con el filtro aplicado
+      const products = await Product.find(filter)
+        .populate("product_location") // Poblar la ubicación del producto
+        .populate({
+          path: "subcategory",
+          populate: {
+            path: "category", // Poblar la categoría dentro de la subcategoría
+          },
+        })
+        .sort({ createdAt: -1 }); // Ordenar por fecha de creación (más reciente primero)
+
+      // Si no se encuentran productos
+      if (products.length === 0) {
+        return res.status(404).json({
+          message:
+            "No se encontraron productos para esta categoría y subcategoría",
+        });
+      }
+
+      // Retornar los productos encontrados
+      res.status(200).json(products);
+    } catch (error) {
+      console.error("Error al obtener productos:", error);
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
   searchProduct: async (req, res) => {
     try {
       const result = await Product.aggregate([

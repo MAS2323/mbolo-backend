@@ -116,9 +116,14 @@ export const getProductsByCategoryAndSubcategory = async (req, res) => {
 
     // Buscar productos con el filtro aplicado
     const products = await Product.find(filter)
-      .populate("product_location")
-      .populate("subcategory")
-      .sort({ createdAt: -1 });
+      .populate("product_location") // Poblar la ubicación del producto
+      .populate({
+        path: "subcategory",
+        populate: {
+          path: "category", // Poblar la categoría dentro de la subcategoría
+        },
+      })
+      .sort({ createdAt: -1 }); // Ordenar por fecha de creación (más reciente primero)
 
     // Si no se encuentran productos
     if (products.length === 0) {
@@ -128,6 +133,7 @@ export const getProductsByCategoryAndSubcategory = async (req, res) => {
       });
     }
 
+    // Retornar los productos encontrados
     res.status(200).json(products);
   } catch (error) {
     console.error("Error al obtener productos:", error);
