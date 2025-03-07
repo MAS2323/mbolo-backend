@@ -8,14 +8,14 @@ router.get("/", productController.getAllProduct);
 router.get("/:id", productController.getProduct);
 router.get("/search/:key", productController.searchProduct);
 router.put("/:id", productController.updateProduct);
-// router.get(
-//   "/filter/products",
-//   productController.getProductsByCategoryAndSubcategory
-// );
 router.get(
-  "/subcategory/:subcategoryId",
+  "/filter/products",
   productController.getProductsByCategoryAndSubcategory
 );
+// router.get(
+//   "/subcategory/:subcategoryId",
+//   productController.getProductsByCategoryAndSubcategory
+// );
 
 router.post(
   "/:userId",

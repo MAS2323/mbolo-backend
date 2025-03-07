@@ -1,10 +1,147 @@
 import Product from "../models/Products.js";
 import { uploadImage, deleteImage, updateImage } from "../utils/cloudinary.js";
+import Category from "../models/Category.js";
+import Subcategoryp from "../models/Subcategoryp.js";
+
 import mongoose from "mongoose";
 import User from "../models/User.js";
 import fs from "node:fs";
 
 export default {
+  // createProduct: async (req, res) => {
+  //   try {
+  //     const {
+  //       title,
+  //       supplier,
+  //       price,
+  //       product_location,
+  //       description,
+  //       phoneNumber,
+  //       whatsapp,
+  //       category, // ✅ Ahora validado correctamente
+  //       subcategory,
+  //       customFields,
+  //     } = req.body;
+
+  //     const userId = req.params.userId;
+
+  //     // 📌 Validaciones de entrada
+  //     if (
+  //       !title ||
+  //       !supplier ||
+  //       !price ||
+  //       !product_location ||
+  //       !description ||
+  //       !phoneNumber ||
+  //       !whatsapp ||
+  //       !category ||
+  //       !subcategory ||
+  //       !userId
+  //     ) {
+  //       return res
+  //         .status(400)
+  //         .json({ message: "Todos los campos son obligatorios" });
+  //     }
+
+  //     // Validar IDs (usuario, categoría, subcategoría)
+  //     if (
+  //       !mongoose.Types.ObjectId.isValid(userId) ||
+  //       !mongoose.Types.ObjectId.isValid(category) ||
+  //       !mongoose.Types.ObjectId.isValid(subcategory)
+  //     ) {
+  //       return res
+  //         .status(400)
+  //         .json({ message: "Uno o más IDs no son válidos" });
+  //     }
+  //     // Validar ID de usuario
+  //     if (!mongoose.Types.ObjectId.isValid(userId)) {
+  //       return res
+  //         .status(400)
+  //         .json({ message: "El ID de usuario no es válido" });
+  //     }
+
+  //     // Verificar si el usuario existe
+  //     const userExists = await User.findById(userId);
+  //     if (!userExists) {
+  //       return res.status(404).json({ message: "El usuario no existe" });
+  //     }
+
+  //     const folderName = "productos_mbolo";
+  //     const images = [];
+
+  //     // Subir imágenes a Cloudinary
+  //     for (const file of req.files) {
+  //       try {
+  //         const result = await uploadImage(file.path, folderName);
+  //         images.push({
+  //           url: result.url,
+  //           public_id: result.public_id,
+  //         });
+  //       } catch (error) {
+  //         console.error("Error al subir la imagen:", error);
+  //         // Eliminar imágenes ya subidas en caso de error
+  //         if (images.length > 0) {
+  //           for (const image of images) {
+  //             await deleteImage(image.public_id).catch((err) =>
+  //               console.error("Error al eliminar imagen de Cloudinary:", err)
+  //             );
+  //           }
+  //         }
+  //         return res.status(500).json({
+  //           error: "Error al subir la imagen a Cloudinary",
+  //           details: error.message,
+  //         });
+  //       } finally {
+  //         fs.unlinkSync(file.path); // Eliminar archivo temporal
+  //       }
+  //     }
+
+  //     // Crear el producto en la base de datos
+  //     const newProduct = new Product({
+  //       title,
+  //       supplier,
+  //       price,
+  //       product_location,
+  //       description,
+  //       phoneNumber,
+  //       whatsapp,
+  //       images,
+  //       category, // ✅ Agregar esto
+  //       subcategory,
+  //       customFields: customFields || {},
+  //       type: "product",
+  //       user: userId,
+  //     });
+
+  //     const savedProduct = await newProduct.save();
+
+  //     // Actualizar el usuario con el nuevo producto
+  //     await User.findByIdAndUpdate(userId, {
+  //       $push: { products: savedProduct._id },
+  //     });
+
+  //     res.status(201).json({
+  //       message: "Producto creado exitosamente",
+  //       product: savedProduct,
+  //     });
+  //   } catch (error) {
+  //     console.error("Error creating product:", error);
+  //     if (error.name === "ValidationError") {
+  //       return res.status(400).json({
+  //         error: "Error de validación",
+  //         details: error.message,
+  //       });
+  //     }
+  //     res.status(500).json({
+  //       error: "Error interno del servidor",
+  //       details:
+  //         process.env.NODE_ENV === "development"
+  //           ? error.message
+  //           : "Contacta al soporte técnico",
+  //     });
+  //   }
+  // },
+
   createProduct: async (req, res) => {
     try {
       const {
@@ -15,13 +152,15 @@ export default {
         description,
         phoneNumber,
         whatsapp,
+        category, // ✅ Ahora validado correctamente
         subcategory,
         customFields,
       } = req.body;
 
-      const userId = req.params.userId; // Obtener el userId desde los parámetros de la URL
+      const userId = req.params.userId;
 
-      // Validar campos obligatorios
+      // 📌 Validaciones de entrada
+      // Backend: Validación de campos
       if (
         !title ||
         !supplier ||
@@ -30,6 +169,7 @@ export default {
         !description ||
         !phoneNumber ||
         !whatsapp ||
+        !category ||
         !subcategory ||
         !userId
       ) {
@@ -37,25 +177,45 @@ export default {
           .status(400)
           .json({ message: "Todos los campos son obligatorios" });
       }
-
-      // Validar imágenes
-      if (!req.files || req.files.length === 0) {
+      // Validar IDs (usuario, categoría, subcategoría)
+      if (
+        !mongoose.Types.ObjectId.isValid(userId) ||
+        !mongoose.Types.ObjectId.isValid(category) ||
+        !mongoose.Types.ObjectId.isValid(subcategory)
+      ) {
         return res
           .status(400)
-          .json({ message: "Debes subir al menos una imagen" });
-      }
-
-      // Validar ID de usuario
-      if (!mongoose.Types.ObjectId.isValid(userId)) {
-        return res
-          .status(400)
-          .json({ message: "El ID de usuario no es válido" });
+          .json({ message: "Uno o más IDs no son válidos" });
       }
 
       // Verificar si el usuario existe
       const userExists = await User.findById(userId);
       if (!userExists) {
         return res.status(404).json({ message: "El usuario no existe" });
+      }
+
+      // Verificar que la categoría existe
+      const categoryExists = await Category.findById(category);
+      if (!categoryExists) {
+        return res.status(404).json({ message: "La categoría no existe" });
+      }
+
+      // Verificar que la subcategoría pertenece a la categoría
+      const subcategoryExists = await Subcategoryp.findOne({
+        _id: subcategory,
+        category: category,
+      });
+      if (!subcategoryExists) {
+        return res.status(400).json({
+          message: "La subcategoría no pertenece a la categoría seleccionada",
+        });
+      }
+
+      // Validar campos personalizados
+      if (customFields && typeof customFields !== "object") {
+        return res
+          .status(400)
+          .json({ message: "Los campos personalizados deben ser un objeto" });
       }
 
       const folderName = "productos_mbolo";
@@ -98,9 +258,10 @@ export default {
         phoneNumber,
         whatsapp,
         images,
+        category, // Agregar esto
         subcategory,
         customFields: customFields || {},
-        type: "product", // Valor por defecto
+        type: "product",
         user: userId,
       });
 
@@ -132,6 +293,7 @@ export default {
       });
     }
   },
+
   getAllProduct: async (req, res) => {
     try {
       const products = await Product.find()
@@ -211,53 +373,44 @@ export default {
   },
 
   getProductsByCategoryAndSubcategory: async (req, res) => {
-    const { category, subcategory } = req.query;
+    // try {
+    //   const { categoryId, subcategoryId } = req.params;
 
+    //   // Asegurarse de que los IDs sean de tipo ObjectId
+    //   const categoryObjectId = new mongoose.Types.ObjectId(categoryId);
+    //   const subcategoryObjectId = new mongoose.Types.ObjectId(subcategoryId);
+
+    //   const products = await Product.find({
+    //     category: categoryObjectId,
+    //     subcategory: subcategoryObjectId,
+    //   });
+
+    //   res.json(products);
+    // } catch (error) {
+    //   console.error("Error al obtener productos:", error);
+    //   res.status(500).json({ error: "No se pudieron obtener los productos." });
+    // }
     try {
-      let filter = {};
+      const { category, subcategory } = req.query;
 
-      // Filtrar por categoría si se proporciona
-      if (category) {
-        if (!mongoose.Types.ObjectId.isValid(category)) {
-          return res.status(400).json({ message: "ID de categoría inválido" });
-        }
-        filter["subcategory.category"] = mongoose.Types.ObjectId(category);
+      if (!category || !subcategory) {
+        return res
+          .status(400)
+          .json({ message: "La categoría y subcategoría son obligatorias" });
       }
 
-      // Filtrar por subcategoría si se proporciona
-      if (subcategory) {
-        if (!mongoose.Types.ObjectId.isValid(subcategory)) {
-          return res
-            .status(400)
-            .json({ message: "ID de subcategoría inválido" });
-        }
-        filter.subcategory = mongoose.Types.ObjectId(subcategory);
-      }
+      const products = await Product.find({
+        category,
+        subcategory,
+      }).populate("category subcategory");
 
-      // Buscar productos con el filtro aplicado
-      const products = await Product.find(filter)
-        .populate("product_location") // Poblar la ubicación del producto
-        .populate({
-          path: "subcategory",
-          populate: {
-            path: "category", // Poblar la categoría dentro de la subcategoría
-          },
-        })
-        .sort({ createdAt: -1 }); // Ordenar por fecha de creación (más reciente primero)
-
-      // Si no se encuentran productos
-      if (products.length === 0) {
-        return res.status(404).json({
-          message:
-            "No se encontraron productos para esta categoría y subcategoría",
-        });
-      }
-
-      // Retornar los productos encontrados
-      res.status(200).json(products);
+      res.status(200).json({ success: true, products });
     } catch (error) {
-      console.error("Error al obtener productos:", error);
-      res.status(500).json({ message: "Error interno del servidor" });
+      console.error("Error al filtrar productos:", error);
+      res.status(500).json({
+        error: "Error interno del servidor",
+        details: error.message,
+      });
     }
   },
   searchProduct: async (req, res) => {
