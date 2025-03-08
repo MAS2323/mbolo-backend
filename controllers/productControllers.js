@@ -17,6 +17,7 @@ export default {
         product_location,
         description,
         phoneNumber,
+        domicilio,
         whatsapp,
         category, // ✅ Ahora validado correctamente
         subcategory,
@@ -32,6 +33,7 @@ export default {
         !price ||
         !product_location ||
         !description ||
+        !domicilio ||
         !phoneNumber ||
         !whatsapp ||
         !category ||
@@ -106,6 +108,7 @@ export default {
         phoneNumber,
         whatsapp,
         images,
+        domicilio,
         category, // ✅ Agregar esto
         subcategory,
         customFields: customFields || {},
@@ -142,132 +145,6 @@ export default {
     }
   },
 
-  createProduct: async (req, res) => {
-    try {
-      const {
-        title,
-        supplier,
-        price,
-        product_location,
-        description,
-        phoneNumber,
-        whatsapp,
-        category, // ✅ Ahora validado correctamente
-        subcategory,
-        customFields,
-      } = req.body;
-
-      const userId = req.params.userId;
-
-      // 📌 Validaciones de entrada
-      // Backend: Validación de campos
-      if (
-        !title ||
-        !supplier ||
-        !price ||
-        !product_location ||
-        !description ||
-        !phoneNumber ||
-        !whatsapp ||
-        !category ||
-        !subcategory ||
-        !userId
-      ) {
-        return res
-          .status(400)
-          .json({ message: "Todos los campos son obligatorios" });
-      }
-      // Validar IDs (usuario, categoría, subcategoría)
-      if (
-        !mongoose.Types.ObjectId.isValid(userId) ||
-        !mongoose.Types.ObjectId.isValid(category) ||
-        !mongoose.Types.ObjectId.isValid(subcategory)
-      ) {
-        return res
-          .status(400)
-          .json({ message: "Uno o más IDs no son válidos" });
-      }
-
-      const userExists = await User.findById(userId);
-      if (!userExists) {
-        return res.status(404).json({ message: "El usuario no existe" });
-      }
-
-      const folderName = "productos_mbolo";
-      const images = [];
-
-      // Subir imágenes a Cloudinary
-      for (const file of req.files) {
-        try {
-          const result = await uploadImage(file.path, folderName);
-          images.push({
-            url: result.url,
-            public_id: result.public_id,
-          });
-        } catch (error) {
-          console.error("Error al subir la imagen:", error);
-          // Eliminar imágenes ya subidas en caso de error
-          if (images.length > 0) {
-            for (const image of images) {
-              await deleteImage(image.public_id).catch((err) =>
-                console.error("Error al eliminar imagen de Cloudinary:", err)
-              );
-            }
-          }
-          return res.status(500).json({
-            error: "Error al subir la imagen a Cloudinary",
-            details: error.message,
-          });
-        } finally {
-          fs.unlinkSync(file.path); // Eliminar archivo temporal
-        }
-      }
-
-      // Crear el producto en la base de datos
-      const newProduct = new Product({
-        title,
-        supplier,
-        price,
-        product_location,
-        description,
-        phoneNumber,
-        whatsapp,
-        images,
-        category, // ✅ Agregar esto
-        subcategory,
-        customFields: customFields || {},
-        type: "product",
-        user: userId,
-      });
-
-      const savedProduct = await newProduct.save();
-
-      // Actualizar el usuario con el nuevo producto
-      await User.findByIdAndUpdate(userId, {
-        $push: { products: savedProduct._id },
-      });
-
-      res.status(201).json({
-        message: "Producto creado exitosamente",
-        product: savedProduct,
-      });
-    } catch (error) {
-      console.error("Error creating product:", error);
-      if (error.name === "ValidationError") {
-        return res.status(400).json({
-          error: "Error de validación",
-          details: error.message,
-        });
-      }
-      res.status(500).json({
-        error: "Error interno del servidor",
-        details:
-          process.env.NODE_ENV === "development"
-            ? error.message
-            : "Contacta al soporte técnico",
-      });
-    }
-  },
 
   getAllProduct: async (req, res) => {
     try {

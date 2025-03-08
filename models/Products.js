@@ -4,6 +4,7 @@ const productSchema = new mongoose.Schema(
   {
     title: { type: String, required: true, trim: true },
     supplier: { type: String, required: true, trim: true },
+    domicilio: { type: String, required: true, trim: true },
     price: { type: Number, required: true },
     product_location: {
       type: mongoose.Schema.Types.ObjectId,
