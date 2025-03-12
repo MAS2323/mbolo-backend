@@ -1,35 +1,27 @@
 import express from "express";
+import menuController from "../controllers/menuController.js";
+
 const router = express.Router();
-import upload from "../utils/multer.js";
-import productController from "../controllers/productControllers.js";
-import authenticateUser from "../middleware/authMiddleware.js";
 
-router.get("/", productController.getAllProduct);
-router.get("/:id", productController.getProduct);
-router.get("/search/:key", productController.searchProduct);
-router.put("/:id", productController.updateProduct);
-router.get(
-  "/filter/products",
-  productController.getProductsByCategoryAndSubcategory
-);
-// router.get(
-//   "/subcategory/:subcategoryId",
-//   productController.getProductsByCategoryAndSubcategory
-// );
+// Obtener menús por categoría
+router.get("/category/:categoryId", menuController.getMenusByCategory);
 
-router.post(
-  "/:userId",
-  upload.array("images", 6),
-  productController.createProduct
-);
-router.delete("/:id", productController.deleteProduct); // Nueva ruta para eliminar producto
+// Crear un nuevo menú
+router.post("/", menuController.createMenu);
+
+// Obtener un menú por su ID
+router.get("/:menuId", menuController.getMenuById);
+
+// Obtener todos los menús
+router.get("/", menuController.getAllMenus);
+
+// Actualizar un menú por su ID
+router.put("/:menuId", menuController.updateMenuById);
+
+// Eliminar un menú por su ID
+router.delete("/:menuId", menuController.deleteMenuById);
+
+// Buscar menús por texto
+router.get("/search/:key", menuController.searchMenus);
 
 export default router;
-
-/**
- * rutas de getproductsbycategoryandsubcategory
- * /products/filter?category=categoryId
- * /products/filter?subcategory=subcategoryId
- * /products/filter?category=categoryId&subcategory=subcategoryId
- *
- */

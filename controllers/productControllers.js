@@ -1,7 +1,7 @@
 import Product from "../models/Products.js";
 import { uploadImage, deleteImage, updateImage } from "../utils/cloudinary.js";
-import Category from "../models/Category.js";
-import Subcategoryp from "../models/Subcategoryp.js";
+import { nanoid } from "nanoid";
+import ShortLink from "../models/ShortLink.js";
 
 import mongoose from "mongoose";
 import User from "../models/User.js";
@@ -145,7 +145,6 @@ export default {
     }
   },
 
-
   getAllProduct: async (req, res) => {
     try {
       const products = await Product.find()
@@ -225,23 +224,6 @@ export default {
   },
 
   getProductsByCategoryAndSubcategory: async (req, res) => {
-    // try {
-    //   const { categoryId, subcategoryId } = req.params;
-
-    //   // Asegurarse de que los IDs sean de tipo ObjectId
-    //   const categoryObjectId = new mongoose.Types.ObjectId(categoryId);
-    //   const subcategoryObjectId = new mongoose.Types.ObjectId(subcategoryId);
-
-    //   const products = await Product.find({
-    //     category: categoryObjectId,
-    //     subcategory: subcategoryObjectId,
-    //   });
-
-    //   res.json(products);
-    // } catch (error) {
-    //   console.error("Error al obtener productos:", error);
-    //   res.status(500).json({ error: "No se pudieron obtener los productos." });
-    // }
     try {
       const { category, subcategory } = req.query;
 
@@ -307,6 +289,50 @@ export default {
       res.status(200).json("product deleted successfully");
     } catch (error) {
       res.status(500).json("failed to delete the product");
+    }
+  },
+  generateShortLink: async (req, res) => {
+    const { id } = req.params;
+
+    // Verifica que el ID del producto sea válido
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID de producto no válido" });
+    }
+
+    try {
+      // Busca el producto en la base de datos
+      const product = await Product.findById(id); // Use 'id' instead of 'productId'
+      if (!product) {
+        return res.status(404).json({ message: "Producto no encontrado" });
+      }
+
+      // Genera el enlace corto
+      const shortLink = `${process.env.BASE_URL}/producto/${id}`; // Use 'id' instead of 'productId'
+
+      // Devuelve el enlace corto
+      res.json({ shortLink });
+    } catch (error) {
+      console.error("Error al generar el enlace:", error);
+      res.status(500).json({ message: "Error interno del servidor" });
+    }
+  },
+  redirectToProduct: async (req, res) => {
+    try {
+      const { shortCode } = req.params;
+      const shortLink = await ShortLink.findOne({ shortCode }).populate(
+        "productId"
+      );
+
+      if (!shortLink) {
+        return res.status(404).json({ message: "Enlace no encontrado" });
+      }
+
+      res.redirect(
+        `${process.env.BASE_URL}/producto/${shortLink.productId._id}`
+      );
+    } catch (error) {
+      console.error("Error al redirigir:", error);
+      res.status(500).json({ message: "Error interno del servidor" });
     }
   },
 };
