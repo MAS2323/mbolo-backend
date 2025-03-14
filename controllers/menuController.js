@@ -39,6 +39,7 @@ export default {
         whatsapp,
         pdf,
         category,
+        subcategory, // Asegúrate de incluir subcategory
       } = req.body;
 
       // Validación de campos requeridos
@@ -49,6 +50,7 @@ export default {
         phoneNumber,
         whatsapp,
         category,
+        subcategory, // Asegúrate de validar subcategory
       ];
       if (requiredFields.some((field) => !field)) {
         return res
@@ -106,6 +108,7 @@ export default {
         images,
         pdf: pdf || null, // Valor por defecto si no se proporciona
         category,
+        subcategory, // Asegúrate de incluir subcategory
       });
 
       const savedMenu = await menu.save();
@@ -153,7 +156,7 @@ export default {
    */
   getAllMenus: async (req, res) => {
     try {
-      const menus = await Menu.find().lean().populate("location category");
+      const menus = await Menu.find().populate("location category");
       res.json(menus);
     } catch (error) {
       console.error("Error fetching menus:", error);

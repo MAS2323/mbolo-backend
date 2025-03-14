@@ -5,26 +5,28 @@ import Product from "../models/Products.js";
 
 // Crear una nueva subcategoría
 export const createSubCategoryP = async (req, res) => {
-  const { name, category } = req.body;
-
   try {
-    // Verificar si la categoría existe
-    const categoryExists = await Category.findById(category);
-    if (!categoryExists) {
-      return res.status(404).json({ message: "Categoría no encontrada" });
+    const { name, category, type, imageUrl } = req.body;
+
+    // Validar que el tipo sea válido
+    if (!["menusubcat", "productsubcat"].includes(type)) {
+      return res
+        .status(400)
+        .json({ message: "Tipo de subcategoría no válido" });
     }
 
-    // Crear la subcategoría
-    const subCategoryP = new SubCategoryP({
+    const subcategory = new Subcategoryp({
       name,
       category,
+      type,
+      imageUrl,
     });
 
-    await subCategoryP.save();
-    res.status(201).json(subCategoryP);
+    const savedSubcategory = await subcategory.save();
+    res.status(201).json(savedSubcategory);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Error al crear la subcategoría" });
+    console.error("Error creating subcategory:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
   }
 };
 
@@ -74,7 +76,7 @@ export const updateSubCategoryP = async (req, res) => {
 
 export const getSubCategoriesByCategory = async (req, res) => {
   const { categoryId } = req.params;
-  console.log("Received categoryId:", categoryId); // Para verificar
+  // console.log("Received categoryId:", categoryId); // Para verificar
   try {
     // Buscar las subcategorías que pertenezcan a la categoría dada
     const subcategories = await Subcategoryp.find({ category: categoryId });

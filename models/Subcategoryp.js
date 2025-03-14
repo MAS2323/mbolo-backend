@@ -7,18 +7,21 @@ const subCategorySchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    imageUrl: {
+      type: String,
+      default: null,
+    },
     category: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
       required: true,
     },
-    customFields: [
-      {
-        fieldName: { type: String, required: true },
-        fieldType: { type: String, required: true }, // Ejemplo: "string", "number", "boolean"
-        required: { type: Boolean, default: false },
-      },
-    ],
+    type: {
+      type: String,
+      required: true,
+      enum: ["menusubcat", "productsubcat"], // Solo permite estos valores
+      default: "productsubcat", // Valor por defecto
+    },
   },
   { timestamps: true }
 );
