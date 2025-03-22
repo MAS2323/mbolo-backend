@@ -176,44 +176,53 @@ export default {
   updateProduct: async (req, res) => {
     try {
       const { id } = req.params;
-
-      // Obtener el producto actual de la base de datos
       const product = await Product.findById(id);
       if (!product) {
         return res.status(404).json({ message: "Producto no encontrado" });
       }
 
-      // Verificar si se están actualizando las imágenes
+      console.log("Archivos recibidos:", req.files);
+      console.log("Datos recibidos en req.body:", req.body);
+
+      let newImages = product.images || [];
+
       if (req.files && req.files.length > 0) {
-        const folderName = "productos_mbolo"; // Nombre de la carpeta en Cloudinary
+        const folderName = "productos_mbolo";
 
-        // Eliminar las imágenes antiguas de Cloudinary
-        for (const image of product.images) {
-          await deleteImage(image.public_id);
+        // Eliminar imágenes antiguas si se proporcionan nuevas
+        if (product.images && product.images.length > 0) {
+          for (const image of product.images) {
+            if (image.public_id) {
+              await deleteImage(image.public_id); // Usar deleteImage importada
+              console.log(`Imagen antigua eliminada: ${image.public_id}`);
+            } else {
+              console.log(
+                `No se encontró public_id para imagen antigua: ${image.url}`
+              );
+            }
+          }
         }
 
-        // Subir las nuevas imágenes a Cloudinary en la carpeta especificada
-        const newImages = [];
+        // Subir nuevas imágenes
+        newImages = [];
         for (const file of req.files) {
-          const { url, public_id } = await updateImage(file.path, folderName);
+          const { url, public_id } = await uploadImage(file.path, folderName);
           newImages.push({ url, public_id });
-          fs.unlinkSync(file.path); // Eliminar el archivo temporal
+          fs.unlinkSync(file.path);
         }
-
-        // Actualizar el campo de imágenes en el producto
-        req.body.images = newImages;
       }
 
-      // Actualizar el producto en la base de datos
       const updatedProduct = await Product.findByIdAndUpdate(
         id,
         {
           ...req.body,
+          images: newImages,
           customFields: req.body.customFields || product.customFields,
-        }, // Actualizar customFields
-        { new: true } // Devuelve el documento actualizado
+        },
+        { new: true }
       );
 
+      console.log("Producto actualizado:", updatedProduct);
       res.status(200).json(updatedProduct);
     } catch (error) {
       console.error("Error al actualizar el producto:", error);
@@ -273,22 +282,48 @@ export default {
     try {
       const product = await Product.findByIdAndDelete(req.params.id);
       if (!product) {
-        return res.status(404).json("product not found");
+        return res.status(404).json({ message: "Producto no encontrado" });
       }
 
-      // Eliminar las imágenes de Cloudinary
-      for (const image of product.images) {
-        try {
-          await deleteImage(image.public_id);
-          console.log(`Imagen eliminada: ${image.public_id}`);
-        } catch (error) {
-          console.error("Error al eliminar la imagen de Cloudinary:", error);
+      console.log("Imágenes del producto:", product.images);
+
+      // Eliminar las imágenes de Cloudinary si existen
+      if (product.images && product.images.length > 0) {
+        for (const image of product.images) {
+          let publicId = image.public_id;
+
+          // Si no hay public_id, extraerlo de la URL
+          if (!publicId && image.url) {
+            const urlParts = image.url.split("/");
+            const fileName = urlParts.pop();
+            const folder = urlParts.pop();
+            publicId = `${folder}/${fileName.split(".")[0]}`;
+            console.log(`Extrayendo public_id de la URL: ${publicId}`);
+          }
+
+          if (publicId) {
+            try {
+              await deleteImage(publicId); // Usar deleteImage importada
+              console.log(`Imagen eliminada: ${publicId}`);
+            } catch (error) {
+              console.error(
+                "Error al eliminar la imagen de Cloudinary:",
+                error
+              );
+            }
+          } else {
+            console.log(
+              "No se pudo determinar el public_id para la imagen:",
+              image.url
+            );
+          }
         }
       }
 
-      res.status(200).json("product deleted successfully");
+      res.status(200).json({ message: "Producto eliminado correctamente" });
     } catch (error) {
-      res.status(500).json("failed to delete the product");
+      console.error("Error al eliminar el producto:", error);
+      res.status(500).json({ message: "Fallo al eliminar el producto" });
     }
   },
   generateShortLink: async (req, res) => {

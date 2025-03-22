@@ -18,7 +18,7 @@ cloudinary.config({
 export async function uploadImage(filePath, folderName) {
   try {
     const result = await cloudinary.uploader.upload(filePath, {
-      folder: folderName, // Usar el nombre de la carpeta proporcionado
+      folder: folderName,
     });
     return {
       url: result.secure_url,

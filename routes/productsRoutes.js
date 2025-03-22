@@ -7,7 +7,7 @@ import authenticateUser from "../middleware/authMiddleware.js";
 router.get("/", productController.getAllProduct);
 router.get("/:id", productController.getProduct);
 router.get("/search/:key", productController.searchProduct);
-router.put("/:id", productController.updateProduct);
+router.put("/:id", upload.array("images"), productController.updateProduct);
 router.get(
   "/filter/products",
   productController.getProductsByCategoryAndSubcategory
