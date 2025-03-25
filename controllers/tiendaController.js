@@ -9,7 +9,6 @@ export const crearTienda = async (req, res) => {
       description,
       logo_url,
       banner_url,
-      contact_email,
       phone_number,
       address,
       owner,
@@ -29,7 +28,6 @@ export const crearTienda = async (req, res) => {
       description,
       logo_url,
       banner_url,
-      contact_email,
       phone_number,
       address,
       owner,
@@ -76,15 +74,8 @@ export const obtenerTienda = async (req, res) => {
 export const actualizarTienda = async (req, res) => {
   try {
     const { id } = req.params;
-    const {
-      name,
-      description,
-      logo_url,
-      banner_url,
-      contact_email,
-      phone_number,
-      address,
-    } = req.body;
+    const { name, description, logo_url, banner_url, phone_number, address } =
+      req.body;
 
     // Buscar la tienda por ID
     const tienda = await Tienda.findById(id);
@@ -97,7 +88,6 @@ export const actualizarTienda = async (req, res) => {
     tienda.description = description || tienda.description;
     tienda.logo_url = logo_url || tienda.logo_url;
     tienda.banner_url = banner_url || tienda.banner_url;
-    tienda.contact_email = contact_email || tienda.contact_email;
     tienda.phone_number = phone_number || tienda.phone_number;
     tienda.address = address || tienda.address;
 
@@ -134,5 +124,29 @@ export const eliminarTienda = async (req, res) => {
   } catch (error) {
     console.error("Error al eliminar la tienda:", error);
     res.status(500).json({ message: "Hubo un error al eliminar la tienda." });
+  }
+};
+
+export const obtenerTiendaPorUsuario = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Buscar la tienda asociada al ID del usuario
+    const tienda = await Tienda.findOne({ owner: userId })
+      .populate("owner", "userName email") // Poblar datos del propietario
+      .populate("products", "title price"); // Poblar datos de los productos
+
+    if (!tienda) {
+      return res.status(404).json({
+        message: "Tienda no encontrada para el usuario proporcionado.",
+      });
+    }
+
+    res.status(200).json(tienda);
+  } catch (error) {
+    console.error("Error al obtener la tienda por ID de usuario:", error);
+    res.status(500).json({
+      message: "Hubo un error al obtener la tienda por ID de usuario.",
+    });
   }
 };

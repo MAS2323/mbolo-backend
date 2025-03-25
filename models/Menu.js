@@ -12,13 +12,12 @@ const menuSchema = new mongoose.Schema(
     },
     subcategory: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Subcategory",
+      ref: "Subcategoryp",
       required: true,
     },
     location: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Location",
-      required: true,
+      city: { type: String, required: true },
+      province: { type: String, required: true },
     },
     socialMedia: [
       {
@@ -41,18 +40,14 @@ const menuSchema = new mongoose.Schema(
     },
     images: [
       {
-        url: { type: String },
-        public_id: { type: String },
+        url: { type: String, required: true },
+        public_id: { type: String, required: true },
       },
     ],
-    pdf: { type: String, default: null },
-    customFields: [
-      {
-        fieldName: { type: String, required: true },
-        fieldType: { type: String, required: true },
-        value: { type: mongoose.Schema.Types.Mixed },
-      },
-    ],
+    pdf: {
+      url: String,
+      public_id: String,
+    },
   },
   { timestamps: true }
 );

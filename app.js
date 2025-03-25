@@ -17,6 +17,7 @@ import locationRoutes from "./routes/locationRoutes.js";
 import menuRoutes from "./routes/menuRoutes.js";
 import cityRoutes from "./routes/cityRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import tiendaRoutes from "./routes/tiendaRoutes.js";
 import path from "path";
 import adRoutes from "./routes/adRoutes.js";
 import { fileURLToPath } from "url";
@@ -64,6 +65,7 @@ app.use("/", userRouter);
 app.use("/menus", menuRoutes);
 app.use("/", authRoutes);
 app.use("/locations", locationRoutes);
+app.use("/tienda", tiendaRoutes);
 app.use("/ads", adRoutes);
 app.use("/cities", cityRoutes);
 // Iniciar el servidor

@@ -21,16 +21,6 @@ const tiendaSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    contact_email: {
-      type: String,
-      required: true,
-      trim: true,
-      lowercase: true,
-      match: [
-        /\S+@\S+\.\S+/,
-        "Por favor ingresa un correo electrónico válido.",
-      ],
-    },
     phone_number: {
       type: String,
       required: true,
@@ -42,13 +32,13 @@ const tiendaSchema = new mongoose.Schema(
     },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User", // Relaciona con el modelo de usuario
+      ref: "User",
       required: true,
     },
     products: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Product", // Relaciona con el modelo de producto (opcional, si lo usas)
+        ref: "Product",
         required: true,
       },
     ],

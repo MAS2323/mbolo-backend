@@ -73,4 +73,26 @@ export async function updateImage(public_id, filePath, folderName) {
   }
 }
 
+/**
+ * Sube un PDF a Cloudinary en una carpeta específica.
+ * @param {string} filePath - Ruta del archivo PDF.
+ * @param {string} folderName - Nombre de la carpeta en Cloudinary.
+ * @returns {Promise<{url: string, public_id: string}>} - URL y public_id del PDF subido.
+ */
+export async function uploadPDF(filePath, folderName) {
+  try {
+    const result = await cloudinary.uploader.upload(filePath, {
+      folder: folderName,
+      resource_type: "raw", // Especificar que es un archivo raw (PDF)
+    });
+    return {
+      url: result.secure_url,
+      public_id: result.public_id,
+    };
+  } catch (error) {
+    console.error("Error al subir el PDF a Cloudinary:", error);
+    throw error;
+  }
+}
+
 export default cloudinary;

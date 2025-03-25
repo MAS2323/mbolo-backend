@@ -1,6 +1,6 @@
 import Menu from "../models/Menu.js";
 import mongoose from "mongoose";
-import { uploadImage, deleteImage } from "../utils/cloudinary.js";
+import { uploadImage, deleteImage, uploadPDF } from "../utils/cloudinary.js";
 import fs from "node:fs";
 
 export default {
@@ -29,6 +29,7 @@ export default {
    */
   createMenu: async (req, res) => {
     try {
+      const { categoryId } = req.params;
       const {
         name,
         description,
@@ -37,103 +38,131 @@ export default {
         horario,
         phoneNumber,
         whatsapp,
-        pdf,
-        category,
-        subcategory, // Asegúrate de incluir subcategory
+        subcategory,
       } = req.body;
 
-      // Validación de campos requeridos
-      const requiredFields = [
+      // Validaciones de entrada
+      const requiredFields = {
         name,
         description,
-        location,
+        "location.city": location?.city,
+        "location.province": location?.province,
         phoneNumber,
         whatsapp,
-        category,
-        subcategory, // Asegúrate de validar subcategory
-      ];
-      if (requiredFields.some((field) => !field)) {
-        return res
-          .status(400)
-          .json({ message: "Todos los campos son obligatorios" });
+        subcategory,
+        categoryId,
+      };
+
+      const missingFields = Object.entries(requiredFields)
+        .filter(([key, value]) => !value)
+        .map(([key]) => key);
+
+      if (missingFields.length) {
+        return res.status(400).json({
+          message: "Todos los campos son obligatorios",
+          missing: missingFields,
+        });
       }
 
-      // Validación de archivos (imágenes)
-      if (!req.files || req.files.length === 0) {
+      // Validar IDs de MongoDB
+      if (
+        !mongoose.Types.ObjectId.isValid(categoryId) ||
+        !mongoose.Types.ObjectId.isValid(subcategory)
+      ) {
+        return res.status(400).json({
+          message: "Uno o más IDs no son válidos",
+          details: { categoryId, subcategory },
+        });
+      }
+
+      // Convertir req.files a un array plano
+      let files = [];
+      if (req.files) {
+        if (req.files.images) {
+          files = files.concat(
+            Array.isArray(req.files.images)
+              ? req.files.images
+              : [req.files.images]
+          );
+        }
+        if (req.files.pdf) {
+          files = files.concat(
+            Array.isArray(req.files.pdf) ? req.files.pdf : [req.files.pdf]
+          );
+        }
+      }
+
+      // Validar carga de imágenes (debe haber al menos una imagen)
+      const imageFiles = files.filter((file) =>
+        file.mimetype.startsWith("image")
+      );
+      if (imageFiles.length === 0) {
         return res
           .status(400)
           .json({ message: "Debes subir al menos una imagen" });
       }
 
-      const folderName = "menu_mbolo"; // Nombre de la carpeta en Cloudinary
-      const images = [];
-
       // Subir imágenes a Cloudinary
-      for (const file of req.files) {
-        try {
-          const result = await uploadImage(file.path, folderName);
-          images.push({
-            url: result.url,
-            public_id: result.public_id,
-          });
-          fs.unlinkSync(file.path); // Eliminar el archivo temporal
-        } catch (error) {
-          console.error("Error al subir la imagen:", error);
+      const images = await Promise.all(
+        imageFiles.map(async (file) => {
+          const result = await uploadImage(file.path, "menu_mbolo");
+          // Eliminar el archivo local después de subirlo a Cloudinary
+          fs.unlinkSync(file.path);
+          return result;
+        })
+      );
 
-          // Si falla la subida de una imagen, eliminar las imágenes ya subidas
-          if (images.length > 0) {
-            for (const image of images) {
-              await deleteImage(image.public_id).catch((err) =>
-                console.error("Error al eliminar imagen de Cloudinary:", err)
-              );
-            }
-          }
-
-          return res.status(500).json({
-            error: "Error al subir la imagen a Cloudinary",
-            details: error.message,
-          });
-        }
+      // Subir PDF a Cloudinary (si existe)
+      let pdfResult = null;
+      const pdfFile = files.find((file) => file.mimetype === "application/pdf");
+      if (pdfFile) {
+        pdfResult = await uploadPDF(pdfFile.path, "menu_pdfs");
+        // Eliminar el archivo local después de subirlo a Cloudinary
+        fs.unlinkSync(pdfFile.path);
       }
 
-      // Crear el menú en la base de datos
-      const menu = new Menu({
+      // Parsear campos JSON con manejo de errores
+      const parseJsonField = (field, defaultValue = []) => {
+        try {
+          return field ? JSON.parse(field) : defaultValue;
+        } catch (error) {
+          console.error(`Error al parsear JSON para campo: ${field}`, error);
+          return defaultValue;
+        }
+      };
+
+      // Crear y guardar el nuevo menú
+      const newMenu = new Menu({
         name,
         description,
-        location,
-        socialMedia: socialMedia || [], // Valor por defecto si no se proporciona
-        horario: horario || [], // Valor por defecto si no se proporciona
+        location: {
+          city: location?.city || "",
+          province: location?.province || "",
+        },
+        socialMedia: parseJsonField(socialMedia),
+        horario: parseJsonField(horario),
         phoneNumber,
         whatsapp,
         images,
-        pdf: pdf || null, // Valor por defecto si no se proporciona
-        category,
-        subcategory, // Asegúrate de incluir subcategory
+        pdf: pdfResult ? pdfResult.url : null,
+        category: categoryId,
+        subcategory,
       });
 
-      const savedMenu = await menu.save();
-      res.status(201).json({
+      const savedMenu = await newMenu.save();
+
+      return res.status(201).json({
         message: "Menú creado exitosamente",
         menu: savedMenu,
       });
     } catch (error) {
-      console.error("Error creating menu:", error);
-
-      // Manejo de errores específicos
-      if (error.name === "ValidationError") {
-        return res.status(400).json({
-          error: "Error de validación",
-          details: error.message,
-        });
-      }
-
-      res.status(500).json({
-        error: "Error interno del servidor",
-        details: error.message,
+      console.error("Error al crear menú:", error);
+      return res.status(500).json({
+        message: "Error interno del servidor",
+        error: error.message,
       });
     }
   },
-
   /**
    * Obtiene un menú por su ID.
    */
@@ -228,7 +257,48 @@ export default {
       res.status(500).json({ error: "Failed to delete menu" });
     }
   },
+  // Opción 1: Controlador específico para subcategorías
+  getMenusBySubcategory: async (req, res) => {
+    try {
+      const { subcategoryId } = req.params;
 
+      if (!mongoose.Types.ObjectId.isValid(subcategoryId)) {
+        return res
+          .status(400)
+          .json({ message: "ID de subcategoría no válido" });
+      }
+
+      const menus = await Menu.find({ subcategory: subcategoryId });
+      res.json(menus);
+    } catch (error) {
+      console.error("Error al obtener menús por subcategoría:", error);
+      res.status(500).json({ message: "Error del servidor" });
+    }
+  },
+
+  // Opción 2: Controlador unificado
+  getMenusByCategoryOrSubcategory: async (req, res) => {
+    try {
+      const { categoryId } = req.params;
+      const { subcategory } = req.query; // Opcional: ?subcategory=true
+
+      if (!mongoose.Types.ObjectId.isValid(categoryId)) {
+        return res.status(400).json({ message: "ID no válido" });
+      }
+
+      let query = { category: categoryId };
+
+      if (subcategory === "true") {
+        query = { subcategory: categoryId };
+      }
+
+      const menus = await Menu.find(query);
+      res.json(menus);
+    } catch (error) {
+      console.error("Error al obtener menús:", error);
+      res.status(500).json({ message: "Error del servidor" });
+    }
+  },
   /**
    * Busca menús por texto.
    */
