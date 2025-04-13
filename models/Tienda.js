@@ -1,6 +1,6 @@
+// tiendaSchema.js
 import mongoose from "mongoose";
 
-// Definir el esquema de la tienda
 const tiendaSchema = new mongoose.Schema(
   {
     name: {
@@ -13,13 +13,25 @@ const tiendaSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    logo_url: {
-      type: String,
-      required: true,
+    logo: {
+      url: {
+        type: String,
+        required: true,
+      },
+      public_id: {
+        type: String,
+        required: true,
+      },
     },
-    banner_url: {
-      type: String,
-      required: true,
+    banner: {
+      url: {
+        type: String,
+        required: true,
+      },
+      public_id: {
+        type: String,
+        required: true,
+      },
     },
     phone_number: {
       type: String,
@@ -27,7 +39,7 @@ const tiendaSchema = new mongoose.Schema(
     },
     address: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Location", // Referencia al modelo Location
+      ref: "Location",
       required: true,
     },
     owner: {
@@ -39,16 +51,14 @@ const tiendaSchema = new mongoose.Schema(
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Product",
-        required: true,
       },
     ],
   },
   {
-    timestamps: true, // Agrega los campos createdAt y updatedAt
+    timestamps: true,
   }
 );
 
-// Crear el modelo de Tienda
 const Tienda = mongoose.model("Tienda", tiendaSchema);
 
 export default Tienda;

@@ -1,21 +1,49 @@
 import Tienda from "../models/Tienda.js"; // Importa el modelo Tienda
 import User from "../models/User.js"; // Importa el modelo User (opcional, para validaciones)
 import Location from "../models/Location.js";
-
+import { uploadImage, deleteImage } from "../utils/cloudinary.js";
+import mongoose from "mongoose";
+import fs from "fs";
 // Crear una tienda
 export const crearTienda = async (req, res) => {
   try {
-    const {
-      name,
-      description,
-      logo_url,
-      banner_url,
-      phone_number,
-      address,
-      owner,
-    } = req.body;
+    console.log("Request Body:", req.body);
+    console.log("Request Files:", req.files);
 
-    // Validar que el usuario (owner) exista
+    const { name, description, phone_number, address, owner } = req.body;
+
+    const missingFields = [];
+    if (!name) missingFields.push("name");
+    if (!description) missingFields.push("description");
+    if (!phone_number) missingFields.push("phone_number");
+    if (!address) missingFields.push("address");
+    if (!owner) missingFields.push("owner");
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        message: `Los siguientes campos de texto son obligatorios: ${missingFields.join(
+          ", "
+        )}.`,
+      });
+    }
+
+    if (!req.files || !req.files.logo || !req.files.banner) {
+      return res
+        .status(400)
+        .json({ message: "El logo y el banner son obligatorios." });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(owner)) {
+      return res
+        .status(400)
+        .json({ message: "El ID del propietario no es válido." });
+    }
+    if (!mongoose.Types.ObjectId.isValid(address)) {
+      return res
+        .status(400)
+        .json({ message: "El ID de la ubicación no es válido." });
+    }
+
     const usuarioExistente = await User.findById(owner);
     if (!usuarioExistente) {
       return res
@@ -23,36 +51,98 @@ export const crearTienda = async (req, res) => {
         .json({ message: "El usuario propietario no existe." });
     }
 
-    // Validar que la ubicación (address) exista
-    const ubicacionExistente = await Location.findById(address); // Usar Location
+    if (usuarioExistente.tienda) {
+      return res
+        .status(400)
+        .json({ message: "El usuario ya tiene una tienda asociada." });
+    }
+
+    const ubicacionExistente = await Location.findById(address);
     if (!ubicacionExistente) {
       return res.status(404).json({ message: "La ubicación no existe." });
     }
 
-    // Crear la tienda
+    const folderName = "tiendas";
+    let logo = null;
+    let banner = null;
+
+    try {
+      const logoResult = await uploadImage(req.files.logo[0].path, folderName);
+      logo = {
+        url: logoResult.url,
+        public_id: logoResult.public_id,
+      };
+
+      const bannerResult = await uploadImage(
+        req.files.banner[0].path,
+        folderName
+      );
+      banner = {
+        url: bannerResult.url,
+        public_id: bannerResult.public_id,
+      };
+    } catch (error) {
+      console.error("Error al subir imágenes a Cloudinary:", error);
+      if (logo) {
+        await deleteImage(logo.public_id).catch((err) =>
+          console.error("Error al eliminar logo de Cloudinary:", err)
+        );
+      }
+      if (banner) {
+        await deleteImage(banner.public_id).catch((err) =>
+          console.error("Error al eliminar banner de Cloudinary:", err)
+        );
+      }
+      throw new Error("Error al subir imágenes a Cloudinary");
+    } finally {
+      if (req.files.logo) fs.unlinkSync(req.files.logo[0].path);
+      if (req.files.banner) fs.unlinkSync(req.files.banner[0].path);
+    }
+
     const nuevaTienda = new Tienda({
       name,
       description,
-      logo_url,
-      banner_url,
+      logo,
+      banner,
       phone_number,
       address,
       owner,
+      products: [],
     });
 
-    // Guardar la tienda en la base de datos
-    await nuevaTienda.save();
+    const savedTienda = await nuevaTienda.save();
 
-    // Actualizar el campo `tienda` del usuario
-    usuarioExistente.tienda = nuevaTienda._id;
+    usuarioExistente.tienda = savedTienda._id;
     await usuarioExistente.save();
 
     res
       .status(201)
-      .json({ message: "Tienda creada exitosamente", tienda: nuevaTienda });
+      .json({ message: "Tienda creada exitosamente", tienda: savedTienda });
   } catch (error) {
     console.error("Error al crear la tienda:", error);
-    res.status(500).json({ message: "Hubo un error al crear la tienda." });
+    if (req.files) {
+      if (req.files.logo) {
+        const logoPath = req.files.logo[0].path;
+        if (fs.existsSync(logoPath)) fs.unlinkSync(logoPath);
+      }
+      if (req.files.banner) {
+        const bannerPath = req.files.banner[0].path;
+        if (fs.existsSync(bannerPath)) fs.unlinkSync(bannerPath);
+      }
+    }
+    if (error.name === "ValidationError") {
+      return res.status(400).json({
+        error: "Error de validación",
+        details: error.message,
+      });
+    }
+    res.status(500).json({
+      error: "Error interno del servidor",
+      details:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Contacta al soporte técnico",
+    });
   }
 };
 // Obtener una tienda por su ID
@@ -90,32 +180,55 @@ export const obtenerTodasTiendas = async (req, res) => {
 export const actualizarTienda = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, logo_url, banner_url, phone_number, address } =
-      req.body;
-
-    // Buscar la tienda por ID
     const tienda = await Tienda.findById(id);
     if (!tienda) {
-      return res.status(404).json({ message: "Tienda no encontrada." });
+      return res.status(404).json({ message: "La tienda no existe." });
     }
 
-    // Actualizar los campos de la tienda
-    tienda.name = name || tienda.name;
-    tienda.description = description || tienda.description;
-    tienda.logo_url = logo_url || tienda.logo_url;
-    tienda.banner_url = banner_url || tienda.banner_url;
-    tienda.phone_number = phone_number || tienda.phone_number;
-    tienda.address = address || tienda.address;
+    const folderName = "tiendas";
+    let updatedLogo = tienda.logo;
+    let updatedBanner = tienda.banner;
 
-    // Guardar los cambios
+    if (req.files.logo) {
+      const logoResult = await updateImage(
+        tienda.logo.public_id,
+        req.files.logo[0].path,
+        folderName
+      );
+      updatedLogo = {
+        url: logoResult.url,
+        public_id: logoResult.public_id,
+      };
+      fs.unlinkSync(req.files.logo[0].path);
+    }
+
+    if (req.files.banner) {
+      const bannerResult = await updateImage(
+        tienda.banner.public_id,
+        req.files.banner[0].path,
+        folderName
+      );
+      updatedBanner = {
+        url: bannerResult.url,
+        public_id: bannerResult.public_id,
+      };
+      fs.unlinkSync(req.files.banner[0].path);
+    }
+
+    // Update the store with new image data
+    tienda.logo = updatedLogo;
+    tienda.banner = updatedBanner;
     await tienda.save();
 
     res
       .status(200)
-      .json({ message: "Tienda actualizada exitosamente", tienda });
+      .json({ message: "Imágenes actualizadas exitosamente", tienda });
   } catch (error) {
-    console.error("Error al actualizar la tienda:", error);
-    res.status(500).json({ message: "Hubo un error al actualizar la tienda." });
+    console.error("Error al actualizar las imágenes:", error);
+    res.status(500).json({
+      error: "Error interno del servidor",
+      details: error.message,
+    });
   }
 };
 
@@ -124,22 +237,45 @@ export const eliminarTienda = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Buscar la tienda por ID
-    const tienda = await Tienda.findById(id);
-    if (!tienda) {
-      return res.status(404).json({ message: "Tienda no encontrada." });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res
+        .status(400)
+        .json({ message: "El ID de la tienda no es válido." });
     }
 
-    // Eliminar la tienda
+    const tienda = await Tienda.findById(id);
+    if (!tienda) {
+      return res.status(404).json({ message: "La tienda no existe." });
+    }
+
+    // Delete logo and banner from Cloudinary
+    if (tienda.logo.public_id) {
+      await deleteImage(tienda.logo.public_id).catch((err) =>
+        console.error("Error al eliminar logo de Cloudinary:", err)
+      );
+    }
+    if (tienda.banner.public_id) {
+      await deleteImage(tienda.banner.public_id).catch((err) =>
+        console.error("Error al eliminar banner de Cloudinary:", err)
+      );
+    }
+
+    // Delete the store from the database
     await Tienda.findByIdAndDelete(id);
 
-    // Opcional: Eliminar la referencia de la tienda en el usuario propietario
-    await User.findByIdAndUpdate(tienda.owner, { $unset: { tienda: "" } });
+    // Update the user's tienda field
+    await User.findByIdAndUpdate(tienda.owner, { tienda: null });
 
     res.status(200).json({ message: "Tienda eliminada exitosamente." });
   } catch (error) {
     console.error("Error al eliminar la tienda:", error);
-    res.status(500).json({ message: "Hubo un error al eliminar la tienda." });
+    res.status(500).json({
+      error: "Error interno del servidor",
+      details:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Contacta al soporte técnico",
+    });
   }
 };
 

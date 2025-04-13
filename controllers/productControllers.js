@@ -1,8 +1,7 @@
 import Product from "../models/Products.js";
 import { uploadImage, deleteImage, updateImage } from "../utils/cloudinary.js";
-import { nanoid } from "nanoid";
 import ShortLink from "../models/ShortLink.js";
-
+import Tienda from "../models/Tienda.js";
 import mongoose from "mongoose";
 import User from "../models/User.js";
 import fs from "node:fs";
@@ -19,7 +18,7 @@ export default {
         phoneNumber,
         domicilio,
         whatsapp,
-        category, // ✅ Ahora validado correctamente
+        category,
         subcategory,
         customFields,
       } = req.body;
@@ -55,17 +54,19 @@ export default {
           .status(400)
           .json({ message: "Uno o más IDs no son válidos" });
       }
-      // Validar ID de usuario
-      if (!mongoose.Types.ObjectId.isValid(userId)) {
-        return res
-          .status(400)
-          .json({ message: "El ID de usuario no es válido" });
-      }
 
       // Verificar si el usuario existe
       const userExists = await User.findById(userId);
       if (!userExists) {
         return res.status(404).json({ message: "El usuario no existe" });
+      }
+
+      // 📌 Find the store owned by the user
+      const tienda = await Tienda.findOne({ owner: userId });
+      if (!tienda) {
+        return res
+          .status(404)
+          .json({ message: "El usuario no tiene una tienda asociada" });
       }
 
       const folderName = "productos_mbolo";
@@ -81,7 +82,6 @@ export default {
           });
         } catch (error) {
           console.error("Error al subir la imagen:", error);
-          // Eliminar imágenes ya subidas en caso de error
           if (images.length > 0) {
             for (const image of images) {
               await deleteImage(image.public_id).catch((err) =>
@@ -98,7 +98,7 @@ export default {
         }
       }
 
-      // Crear el producto en la base de datos
+      // Crear el producto en la base de datos, asociándolo con la tienda
       const newProduct = new Product({
         title,
         supplier,
@@ -109,14 +109,20 @@ export default {
         whatsapp,
         images,
         domicilio,
-        category, // ✅ Agregar esto
+        category,
         subcategory,
         customFields: customFields || {},
         type: "product",
         user: userId,
+        tienda: tienda._id, // 📌 Associate the product with the store
       });
 
       const savedProduct = await newProduct.save();
+
+      // 📌 Update the store's products array with the new product
+      await Tienda.findByIdAndUpdate(tienda._id, {
+        $push: { products: savedProduct._id },
+      });
 
       // Actualizar el usuario con el nuevo producto
       await User.findByIdAndUpdate(userId, {
