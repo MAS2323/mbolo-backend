@@ -1,5 +1,6 @@
 import Tienda from "../models/Tienda.js"; // Importa el modelo Tienda
 import User from "../models/User.js"; // Importa el modelo User (opcional, para validaciones)
+import Location from "../models/Location.js";
 
 // Crear una tienda
 export const crearTienda = async (req, res) => {
@@ -20,6 +21,12 @@ export const crearTienda = async (req, res) => {
       return res
         .status(404)
         .json({ message: "El usuario propietario no existe." });
+    }
+
+    // Validar que la ubicación (address) exista
+    const ubicacionExistente = await Location.findById(address); // Usar Location
+    if (!ubicacionExistente) {
+      return res.status(404).json({ message: "La ubicación no existe." });
     }
 
     // Crear la tienda
@@ -48,7 +55,6 @@ export const crearTienda = async (req, res) => {
     res.status(500).json({ message: "Hubo un error al crear la tienda." });
   }
 };
-
 // Obtener una tienda por su ID
 export const obtenerTienda = async (req, res) => {
   try {
@@ -69,7 +75,17 @@ export const obtenerTienda = async (req, res) => {
     res.status(500).json({ message: "Hubo un error al obtener la tienda." });
   }
 };
-
+export const obtenerTodasTiendas = async (req, res) => {
+  try {
+    const tiendas = await Tienda.find()
+      .populate("owner", "userName email")
+      .populate("products", "title price sales"); // Include "sales" if it exists in your Product schema
+    res.status(200).json(tiendas);
+  } catch (error) {
+    console.error("Error al obtener las tiendas:", error);
+    res.status(500).json({ message: "Hubo un error al obtener las tiendas." });
+  }
+};
 // Actualizar una tienda
 export const actualizarTienda = async (req, res) => {
   try {

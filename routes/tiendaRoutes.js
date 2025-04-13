@@ -5,6 +5,7 @@ import {
   actualizarTienda,
   eliminarTienda,
   obtenerTiendaPorUsuario,
+  obtenerTodasTiendas,
 } from "../controllers/tiendaController.js";
 
 const router = express.Router();
@@ -12,6 +13,7 @@ const router = express.Router();
 // Rutas para la tienda
 router.post("/", crearTienda); // Crear una tienda
 router.get("/:id", obtenerTienda); // Obtener una tienda por ID
+router.get("/", obtenerTodasTiendas); // Obtener una tienda por ID
 router.put("/:id", actualizarTienda); // Actualizar una tienda por ID
 router.delete("/:id", eliminarTienda); // Eliminar una tienda por ID
 router.get("/usuario/:userId", obtenerTiendaPorUsuario);

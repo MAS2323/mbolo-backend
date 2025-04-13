@@ -26,9 +26,9 @@ const tiendaSchema = new mongoose.Schema(
       required: true,
     },
     address: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Location", // Referencia al modelo Location
       required: true,
-      trim: true,
     },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
