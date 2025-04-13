@@ -7,19 +7,18 @@ import fs from "fs";
 // Crear una tienda
 export const crearTienda = async (req, res) => {
   try {
-    console.log("Request Body:", req.body);
-    console.log("Request Files:", req.files);
-
+    // 📌 Extract text fields from req.body
     const { name, description, phone_number, address, owner } = req.body;
 
-    const missingFields = [];
-    if (!name) missingFields.push("name");
-    if (!description) missingFields.push("description");
-    if (!phone_number) missingFields.push("phone_number");
-    if (!address) missingFields.push("address");
-    if (!owner) missingFields.push("owner");
 
-    if (missingFields.length > 0) {
+    // 📌 Input validation: Check for required text fields
+    if (!name || !description || !phone_number || !address || !owner) {
+      const missingFields = [];
+      if (!name) missingFields.push("name");
+      if (!description) missingFields.push("description");
+      if (!phone_number) missingFields.push("phone_number");
+      if (!address) missingFields.push("address");
+      if (!owner) missingFields.push("owner");
       return res.status(400).json({
         message: `Los siguientes campos de texto son obligatorios: ${missingFields.join(
           ", "
@@ -27,12 +26,7 @@ export const crearTienda = async (req, res) => {
       });
     }
 
-    if (!req.files || !req.files.logo || !req.files.banner) {
-      return res
-        .status(400)
-        .json({ message: "El logo y el banner son obligatorios." });
-    }
-
+    // 📌 Validate ObjectIds (owner, address)
     if (!mongoose.Types.ObjectId.isValid(owner)) {
       return res
         .status(400)
@@ -44,6 +38,7 @@ export const crearTienda = async (req, res) => {
         .json({ message: "El ID de la ubicación no es válido." });
     }
 
+    // 📌 Check if the user (owner) exists
     const usuarioExistente = await User.findById(owner);
     if (!usuarioExistente) {
       return res
@@ -51,28 +46,40 @@ export const crearTienda = async (req, res) => {
         .json({ message: "El usuario propietario no existe." });
     }
 
+    // 📌 Check if the user already has a store
     if (usuarioExistente.tienda) {
       return res
         .status(400)
         .json({ message: "El usuario ya tiene una tienda asociada." });
     }
 
+    // 📌 Check if the location (address) exists
     const ubicacionExistente = await Location.findById(address);
     if (!ubicacionExistente) {
       return res.status(404).json({ message: "La ubicación no existe." });
     }
 
+    // 📌 Validate that logo and banner files are provided
+    if (!req.files || !req.files.logo || !req.files.banner) {
+      return res
+        .status(400)
+        .json({ message: "El logo y el banner son obligatorios." });
+    }
+
+    // 📌 Upload logo and banner to Cloudinary
     const folderName = "tiendas";
     let logo = null;
     let banner = null;
 
     try {
+      // Upload logo
       const logoResult = await uploadImage(req.files.logo[0].path, folderName);
       logo = {
         url: logoResult.url,
         public_id: logoResult.public_id,
       };
 
+      // Upload banner
       const bannerResult = await uploadImage(
         req.files.banner[0].path,
         folderName
@@ -83,6 +90,7 @@ export const crearTienda = async (req, res) => {
       };
     } catch (error) {
       console.error("Error al subir imágenes a Cloudinary:", error);
+      // Clean up any successfully uploaded images
       if (logo) {
         await deleteImage(logo.public_id).catch((err) =>
           console.error("Error al eliminar logo de Cloudinary:", err)
@@ -93,12 +101,17 @@ export const crearTienda = async (req, res) => {
           console.error("Error al eliminar banner de Cloudinary:", err)
         );
       }
-      throw new Error("Error al subir imágenes a Cloudinary");
+      return res.status(500).json({
+        error: "Error al subir imágenes a Cloudinary",
+        details: error.message,
+      });
     } finally {
+      // Clean up temporary files
       if (req.files.logo) fs.unlinkSync(req.files.logo[0].path);
       if (req.files.banner) fs.unlinkSync(req.files.banner[0].path);
     }
 
+    // 📌 Create the store in the database
     const nuevaTienda = new Tienda({
       name,
       description,
@@ -107,19 +120,24 @@ export const crearTienda = async (req, res) => {
       phone_number,
       address,
       owner,
-      products: [],
+      products: [], // Initialize empty products array
     });
 
     const savedTienda = await nuevaTienda.save();
 
-    usuarioExistente.tienda = savedTienda._id;
-    await usuarioExistente.save();
+    // 📌 Update the user's tienda field
+    await User.findByIdAndUpdate(owner, {
+      $set: { tienda: savedTienda._id },
+    });
 
-    res
-      .status(201)
-      .json({ message: "Tienda creada exitosamente", tienda: savedTienda });
+    // 📌 Success response
+    res.status(201).json({
+      message: "Tienda creada exitosamente",
+      tienda: savedTienda,
+    });
   } catch (error) {
     console.error("Error al crear la tienda:", error);
+    // Clean up temporary files in case of error
     if (req.files) {
       if (req.files.logo) {
         const logoPath = req.files.logo[0].path;
@@ -130,12 +148,14 @@ export const crearTienda = async (req, res) => {
         if (fs.existsSync(bannerPath)) fs.unlinkSync(bannerPath);
       }
     }
+    // Handle validation errors
     if (error.name === "ValidationError") {
       return res.status(400).json({
         error: "Error de validación",
         details: error.message,
       });
     }
+    // General error response
     res.status(500).json({
       error: "Error interno del servidor",
       details:

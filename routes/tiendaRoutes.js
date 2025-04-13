@@ -7,11 +7,11 @@ import {
   obtenerTiendaPorUsuario,
   obtenerTodasTiendas,
 } from "../controllers/tiendaController.js";
-
+import { uploadMiddleware } from "../utils/multer.js";
 const router = express.Router();
 
 // Rutas para la tienda
-router.post("/", crearTienda); // Crear una tienda
+router.post("/", uploadMiddleware, crearTienda); // Crear una tienda
 router.get("/:id", obtenerTienda); // Obtener una tienda por ID
 router.get("/", obtenerTodasTiendas); // Obtener una tienda por ID
 router.put("/:id", actualizarTienda); // Actualizar una tienda por ID

@@ -40,5 +40,9 @@ const upload = multer({
     fileSize: 5 * 1024 * 1024, // 5MB
   },
 });
-
+const uploadMiddleware = upload.fields([
+  { name: "logo", maxCount: 1 },
+  { name: "banner", maxCount: 1 },
+]);
+export { uploadMiddleware };
 export default upload;
