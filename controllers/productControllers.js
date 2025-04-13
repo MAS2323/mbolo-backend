@@ -180,10 +180,6 @@ export default {
       if (!product) {
         return res.status(404).json({ message: "Producto no encontrado" });
       }
-
-      console.log("Archivos recibidos:", req.files);
-      console.log("Datos recibidos en req.body:", req.body);
-
       let newImages = product.images || [];
 
       if (req.files && req.files.length > 0) {
@@ -221,8 +217,6 @@ export default {
         },
         { new: true }
       );
-
-      console.log("Producto actualizado:", updatedProduct);
       res.status(200).json(updatedProduct);
     } catch (error) {
       console.error("Error al actualizar el producto:", error);
