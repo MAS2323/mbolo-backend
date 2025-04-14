@@ -41,9 +41,10 @@ export default {
         "_id name description image location contact"
       );
 
-      // if (!favorites) {
-      //   return res.status(404).json({ message: "Favoritos no encontrados" });
-      // }
+      // Si no hay favoritos, devuelve un objeto con subcategories vacío
+      if (!favorites) {
+        return res.status(200).json({ subcategories: [] });
+      }
 
       res.status(200).json(favorites);
     } catch (error) {
@@ -54,7 +55,6 @@ export default {
       });
     }
   },
-
   removeFavorite: async (req, res) => {
     const { userId, subcategoryId } = req.body;
 
