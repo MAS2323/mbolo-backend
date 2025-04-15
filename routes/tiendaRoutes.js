@@ -14,7 +14,7 @@ const router = express.Router();
 router.post("/", uploadMiddleware, crearTienda); // Crear una tienda
 router.get("/:id", obtenerTienda); // Obtener una tienda por ID
 router.get("/", obtenerTodasTiendas); // Obtener una tienda por ID
-router.put("/:id", actualizarTienda); // Actualizar una tienda por ID
+router.put("/:id", uploadMiddleware, actualizarTienda); // Actualizar una tienda por ID
 router.delete("/:id", eliminarTienda); // Eliminar una tienda por ID
 router.get("/usuario/:userId", obtenerTiendaPorUsuario);
 

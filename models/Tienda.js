@@ -1,4 +1,3 @@
-// tiendaSchema.js
 import mongoose from "mongoose";
 
 const tiendaSchema = new mongoose.Schema(
@@ -46,6 +45,11 @@ const tiendaSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+    },
+    specific_location: {
+      type: String,
+      required: true,
+      trim: true,
     },
     products: [
       {
