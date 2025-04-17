@@ -427,3 +427,39 @@ export const obtenerTiendaPorUsuario = async (req, res) => {
     });
   }
 };
+
+export const addProductToTienda = async (req, res) => {
+  try {
+    const { tiendaId } = req.params;
+    const { productId } = req.body;
+
+    console.log("PATCH /tienda/:tiendaId/add-product", { tiendaId, productId });
+
+    if (
+      !mongoose.Types.ObjectId.isValid(tiendaId) ||
+      !mongoose.Types.ObjectId.isValid(productId)
+    ) {
+      return res.status(400).json({ message: "Invalid tiendaId or productId" });
+    }
+
+    const tienda = await Tienda.findByIdAndUpdate(
+      tiendaId,
+      { $push: { products: productId } },
+      { new: true }
+    );
+
+    if (!tienda) {
+      return res.status(404).json({ message: "Tienda not found" });
+    }
+
+    res.status(200).json({ message: "Product added to tienda", tienda });
+  } catch (error) {
+    console.error("Error adding product to tienda:", {
+      message: error.message,
+      stack: error.stack,
+    });
+    res
+      .status(500)
+      .json({ error: "Internal server error", details: error.message });
+  }
+};
