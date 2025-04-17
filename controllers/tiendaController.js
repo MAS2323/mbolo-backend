@@ -18,22 +18,15 @@ export const crearTienda = async (req, res) => {
     } = req.body;
 
     // Validar campos requeridos
-    if (
-      !name ||
-      !description ||
-      !phone_number ||
-      !address ||
-      !owner ||
-      !specific_location
-    ) {
-      const missingFields = [];
-      if (!name) missingFields.push("name");
-      if (!description) missingFields.push("description");
-      if (!phone_number) missingFields.push("phone_number");
-      if (!address) missingFields.push("address");
-      if (!owner) missingFields.push("owner");
-      if (!specific_location) missingFields.push("specific_location");
+    const missingFields = [];
+    if (!name) missingFields.push("name");
+    if (!description) missingFields.push("description");
+    if (!phone_number) missingFields.push("phone_number");
+    if (!address) missingFields.push("address");
+    if (!owner) missingFields.push("owner");
+    if (!specific_location) missingFields.push("specific_location");
 
+    if (missingFields.length > 0) {
       return res.status(400).json({
         message: `Los siguientes campos son obligatorios: ${missingFields.join(
           ", "
@@ -61,11 +54,13 @@ export const crearTienda = async (req, res) => {
         .json({ message: "El usuario propietario no existe." });
     }
 
-    // Verificar si el usuario ya tiene una tienda
-    if (usuarioExistente.tienda) {
-      return res
-        .status(400)
-        .json({ message: "El usuario ya tiene una tienda asociada." });
+    // Verificar si el usuario ya tiene una tienda (doble chequeo)
+    const tiendaExistente = await Tienda.findOne({ owner });
+    if (tiendaExistente || usuarioExistente.tienda) {
+      return res.status(400).json({
+        message:
+          "No puedes crear otra tienda. Cada usuario puede tener solo una tienda.",
+      });
     }
 
     // Verificar si la ubicación existe

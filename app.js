@@ -10,6 +10,7 @@ import cartRouter from "./routes/cart.js";
 import orderRouter from "./routes/orderRoutes.js";
 import categoriesRouter from "./routes/categories.js";
 import favoritesRoutes from "./routes/favoritesRoutes.js";
+import professionalRoutes from "./routes/professionalRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import subcategoriesRouter from "./routes/subCategoryPRoutes.js";
@@ -67,6 +68,7 @@ app.use("/", authRoutes);
 app.use("/locations", locationRoutes);
 app.use("/tienda", tiendaRoutes);
 app.use("/ads", adRoutes);
+app.use("/professional", professionalRoutes);
 app.use("/cities", cityRoutes);
 // Iniciar el servidor
 const port = process.env.PORT || 3001;

@@ -16,6 +16,6 @@ router.get("/:id", obtenerTienda); // Obtener una tienda por ID
 router.get("/", obtenerTodasTiendas); // Obtener una tienda por ID
 router.put("/:id", uploadMiddleware, actualizarTienda); // Actualizar una tienda por ID
 router.delete("/:id", eliminarTienda); // Eliminar una tienda por ID
-router.get("/usuario/:userId", obtenerTiendaPorUsuario);
+router.get("/owner/:userId", obtenerTiendaPorUsuario);
 
 export default router;
