@@ -44,7 +44,7 @@ const professionalSchema = new mongoose.Schema({
   },
   subcategory: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Subcategory",
+    ref: "Subcategoryp",
     required: [true, "La subcategoría es obligatoria"],
   },
   address: {
@@ -141,4 +141,7 @@ professionalSchema.pre("save", function (next) {
   next();
 });
 
-export default mongoose.model("Professional", professionalSchema);
+// export default mongoose.model("Professional", professionalSchema);
+const Professional = mongoose.model("Professional", professionalSchema);
+
+export default Professional;

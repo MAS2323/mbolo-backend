@@ -77,7 +77,7 @@ export const createProfessional = async (req, res) => {
       return res.status(400).json({ message: "ID de categoría inválido" });
     }
 
-    const subcategoryExists = await Subcategory.findById(subcategory);
+    const subcategoryExists = await Subcategoryp.findById(subcategory);
     if (!subcategoryExists) {
       return res.status(400).json({ message: "ID de subcategoría inválido" });
     }
@@ -150,6 +150,12 @@ export const getProfessionalByOwner = async (req, res) => {
   try {
     const { ownerId } = req.params;
 
+    // First validate the ownerId
+    if (!ownerId) {
+      return res.status(400).json({ message: "Owner ID is required" });
+    }
+
+    // Then find the professional
     const professional = await Professional.findOne({ owner: ownerId })
       .populate("owner", "userName")
       .populate("category", "name")
@@ -159,16 +165,14 @@ export const getProfessionalByOwner = async (req, res) => {
     if (!professional) {
       return res
         .status(404)
-        .json({ message: "Cuenta profesional no encontrada" });
+        .json({ message: "Professional account not found" });
     }
 
-    res.status(200).json(professional);
+    // Only send one response
+    return res.status(200).json(professional);
   } catch (error) {
-    console.error("Error al obtener la cuenta profesional:", error);
-    if (error.name === "CastError") {
-      return res.status(400).json({ message: "ID de propietario inválido" });
-    }
-    res.status(500).json({ message: "Error del servidor" });
+    console.error("Error getting professional by owner:", error);
+    return res.status(500).json({ message: "Server error" });
   }
 };
 

@@ -14,6 +14,7 @@ import professionalRoutes from "./routes/professionalRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import subcategoriesRouter from "./routes/subCategoryPRoutes.js";
+import appRoutes from "./routes/appRoutes.js";
 import locationRoutes from "./routes/locationRoutes.js";
 import menuRoutes from "./routes/menuRoutes.js";
 import cityRoutes from "./routes/cityRoutes.js";
@@ -69,6 +70,7 @@ app.use("/locations", locationRoutes);
 app.use("/tienda", tiendaRoutes);
 app.use("/ads", adRoutes);
 app.use("/professional", professionalRoutes);
+app.use("/api", appRoutes);
 app.use("/cities", cityRoutes);
 // Iniciar el servidor
 const port = process.env.PORT || 3001;
