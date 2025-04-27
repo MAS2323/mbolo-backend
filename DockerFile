@@ -4,5 +4,5 @@ COPY package.*json ./
 COPY . .
 RUN npm install
 EXPOSE 3000
-CMD ["npm", "app.js"]
+CMD ["node", "app.js"]
 ENV PORT 3000
