@@ -77,7 +77,7 @@ export const createProfessional = async (req, res) => {
       return res.status(400).json({ message: "ID de categoría inválido" });
     }
 
-    const subcategoryExists = await Subcategoryp.findById(subcategory);
+    const subcategoryExists = await Subcategory.findById(subcategory);
     if (!subcategoryExists) {
       return res.status(400).json({ message: "ID de subcategoría inválido" });
     }
