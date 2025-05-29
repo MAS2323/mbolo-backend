@@ -1,10 +1,6 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
-import Location from "../models/Location.js"; // Importamos Location en lugar de City
-import mongoose from "mongoose";
-import { uploadImage } from "../utils/cloudinary.js";
-import fs from "node:fs";
 
 const registerUser = async (req, res) => {
   try {
