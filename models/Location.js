@@ -4,6 +4,7 @@ const locationSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
     type: { type: String, enum: ["City", "Province"], required: true },
+    address: { type: String, trim: true },
     parentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Location",

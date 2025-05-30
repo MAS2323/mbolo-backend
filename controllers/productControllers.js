@@ -2,6 +2,7 @@ import Product from "../models/Products.js";
 import { uploadImage, deleteImage } from "../utils/cloudinary.js";
 import ShortLink from "../models/ShortLink.js";
 import Tienda from "../models/Tienda.js";
+import Location from "../models/Location.js";
 import mongoose from "mongoose";
 import User from "../models/User.js";
 import fs from "node:fs";
@@ -9,20 +10,6 @@ import fs from "node:fs";
 export default {
   createProduct: async (req, res) => {
     try {
-      console.log("Received POST to /products/:userId", {
-        userId: req.params.userId,
-        body: req.body,
-        files: req.files
-          ? Object.keys(req.files).map((key) =>
-              req.files[key].map((f) => ({
-                path: f.path,
-                mimetype: f.mimetype,
-                size: f.size,
-              }))
-            )
-          : null,
-      });
-
       const {
         title,
         supplier,
@@ -34,6 +21,16 @@ export default {
         tallas,
         numeros_calzado,
         colores,
+        brand,
+        condition,
+        year,
+        location,
+        dimensions,
+        weight,
+        features,
+        specifications,
+        stock,
+        warranty,
       } = req.body;
 
       const userId = req.params.userId;
@@ -71,6 +68,19 @@ export default {
         return res
           .status(404)
           .json({ message: "User does not have an associated store" });
+      }
+
+      // Validate location if provided
+      let locationId = null;
+      if (location) {
+        if (!mongoose.Types.ObjectId.isValid(location)) {
+          return res.status(400).json({ message: "Invalid location ID" });
+        }
+        const locationExists = await Location.findById(location);
+        if (!locationExists) {
+          return res.status(404).json({ message: "Location not found" });
+        }
+        locationId = location;
       }
 
       const folderName = "productos_mbolo";
@@ -206,6 +216,112 @@ export default {
         }
       }
 
+      let parsedDimensions = {};
+      if (dimensions) {
+        try {
+          parsedDimensions = JSON.parse(dimensions);
+          if (
+            typeof parsedDimensions !== "object" ||
+            Array.isArray(parsedDimensions)
+          ) {
+            return res
+              .status(400)
+              .json({ message: "dimensions must be an object" });
+          }
+          if (
+            (parsedDimensions.length &&
+              typeof parsedDimensions.length !== "number") ||
+            (parsedDimensions.width &&
+              typeof parsedDimensions.width !== "number") ||
+            (parsedDimensions.height &&
+              typeof parsedDimensions.height !== "number")
+          ) {
+            return res
+              .status(400)
+              .json({ message: "Dimensions must be numbers" });
+          }
+        } catch (error) {
+          return res.status(400).json({ message: "Invalid dimensions format" });
+        }
+      }
+
+      let parsedWeight = {};
+      if (weight) {
+        try {
+          parsedWeight = JSON.parse(weight);
+          if (typeof parsedWeight !== "object" || Array.isArray(parsedWeight)) {
+            return res
+              .status(400)
+              .json({ message: "weight must be an object" });
+          }
+          if (parsedWeight.value && typeof parsedWeight.value !== "number") {
+            return res
+              .status(400)
+              .json({ message: "Weight value must be a number" });
+          }
+        } catch (error) {
+          return res.status(400).json({ message: "Invalid weight format" });
+        }
+      }
+
+      let parsedFeatures = [];
+      if (features) {
+        try {
+          parsedFeatures = JSON.parse(features);
+          if (!Array.isArray(parsedFeatures)) {
+            return res
+              .status(400)
+              .json({ message: "features must be an array of strings" });
+          }
+        } catch (error) {
+          return res.status(400).json({ message: "Invalid features format" });
+        }
+      }
+
+      let parsedSpecifications = {};
+      if (specifications) {
+        try {
+          parsedSpecifications = JSON.parse(specifications);
+          if (
+            typeof parsedSpecifications !== "object" ||
+            Array.isArray(parsedSpecifications)
+          ) {
+            return res
+              .status(400)
+              .json({ message: "specifications must be an object" });
+          }
+        } catch (error) {
+          return res
+            .status(400)
+            .json({ message: "Invalid specifications format" });
+        }
+      }
+
+      let parsedWarranty = {};
+      if (warranty) {
+        try {
+          parsedWarranty = JSON.parse(warranty);
+          if (
+            typeof parsedWarranty !== "object" ||
+            Array.isArray(parsedWarranty)
+          ) {
+            return res
+              .status(400)
+              .json({ message: "warranty must be an object" });
+          }
+          if (
+            parsedWarranty.duration &&
+            typeof parsedWarranty.duration !== "number"
+          ) {
+            return res
+              .status(400)
+              .json({ message: "Warranty duration must be a number" });
+          }
+        } catch (error) {
+          return res.status(400).json({ message: "Invalid warranty format" });
+        }
+      }
+
       // Create new product
       const newProduct = new Product({
         title,
@@ -219,9 +335,23 @@ export default {
         customFields: parsedCustomFields,
         type: "product",
         tienda: tienda._id,
+        phone_number: tienda.phone_number, // Set from tienda
         tallas: parsedTallas,
         numeros_calzado: parsedNumerosCalzado,
         colores: parsedColores,
+        brand,
+        condition,
+        year: year ? parseInt(year) : undefined,
+        location: locationId,
+        dimensions: parsedDimensions,
+        weight: parsedWeight,
+        features: parsedFeatures,
+        specifications: parsedSpecifications,
+        stock: stock ? parseInt(stock) : 1,
+        warranty: {
+          duration: parsedWarranty.duration,
+          description: parsedWarranty.description,
+        },
         favorites: [],
         comentarios: [],
       });
@@ -246,11 +376,11 @@ export default {
       if (error.name === "ValidationError") {
         return res
           .status(400)
-          .json({ error: "Validation error", details: error.message });
+          .json({ message: "Validation error", details: error.message });
       }
-      res.status(500).json({
+      return res.status(500).json({
         error: "Internal server error",
-        details:
+        message:
           process.env.NODE_ENV === "development"
             ? error.message
             : "Contact technical support",
@@ -261,8 +391,10 @@ export default {
   getAllProduct: async (req, res) => {
     try {
       const products = await Product.find()
-        .populate("tienda")
-        .populate("subcategory") // Asegúrate de que "Subcategoryp" (o "Subcategory") esté registrado
+        .populate("tienda", "name logo")
+        .populate("category", "name")
+        .populate("subcategory", "name")
+        .populate("location", "name address city country") // Populate location details
         .sort({ createdAt: -1 });
       res.status(200).json(products);
     } catch (error) {
@@ -274,8 +406,10 @@ export default {
   getProduct: async (req, res) => {
     try {
       const product = await Product.findById(req.params.id)
-        .populate("tienda")
-        .populate("subcategory");
+        .populate("tienda", "name logo")
+        .populate("category", "name")
+        .populate("subcategory", "name")
+        .populate("location", "name address city country");
       if (!product) {
         return res.status(404).json({ message: "Producto no encontrado" });
       }
@@ -296,14 +430,16 @@ export default {
       let newImages = product.images || [];
       let newVideos = product.videos || [];
 
-      if (req.files && req.files.length > 0) {
+      if (req.files && (req.files.images || req.files.videos)) {
         const folderName = "productos_mbolo";
 
-        // Eliminar imágenes y videos antiguos si se proporcionan nuevos
+        // Delete old images and videos if new ones are provided
         if (product.images && product.images.length > 0) {
           for (const img of product.images) {
             if (img.public_id) {
-              await deleteImage(img.public_id);
+              await deleteImage(img.public_id, "image").catch((err) =>
+                console.error("Error deleting image:", err)
+              );
               console.log(`Imagen antigua eliminada: ${img.public_id}`);
             }
           }
@@ -311,18 +447,26 @@ export default {
         if (product.videos && product.videos.length > 0) {
           for (const vid of product.videos) {
             if (vid.public_id) {
-              await deleteImage(vid.public_id);
+              await deleteImage(vid.public_id, "video").catch((err) =>
+                console.error("Error deleting video:", err)
+              );
               console.log(`Video antiguo eliminado: ${vid.public_id}`);
             }
           }
         }
 
-        // Subir nuevas imágenes y videos
+        // Upload new images and videos
         newImages = [];
         newVideos = [];
-        for (const file of req.files) {
+        const imageFiles = req.files.images || [];
+        const videoFiles = req.files.videos || [];
+        for (const file of [...imageFiles, ...videoFiles]) {
           const isVideo = file.mimetype.startsWith("video/");
-          const { url, public_id } = await uploadImage(file.path, folderName);
+          const { url, public_id } = await uploadImage(
+            file.path,
+            folderName,
+            "auto"
+          );
           if (isVideo) {
             newVideos.push({ url, public_id });
           } else {
@@ -332,19 +476,214 @@ export default {
         }
       }
 
+      // Parse and validate optional fields
+      let parsedTallas = product.tallas;
+      if (req.body.tallas) {
+        try {
+          parsedTallas = JSON.parse(req.body.tallas);
+          if (!Array.isArray(parsedTallas)) {
+            return res
+              .status(400)
+              .json({ message: "tallas must be an array of strings" });
+          }
+        } catch (error) {
+          return res.status(400).json({ message: "Invalid tallas format" });
+        }
+      }
+
+      let parsedNumerosCalzado = product.numeros_calzado;
+      if (req.body.numeros_calzado) {
+        try {
+          parsedNumerosCalzado = JSON.parse(req.body.numeros_calzado);
+          if (
+            !Array.isArray(parsedNumerosCalzado) ||
+            !parsedNumerosCalzado.every(Number.isInteger)
+          ) {
+            return res.status(400).json({
+              message: "numeros_calzado must be an array of integers",
+            });
+          }
+        } catch (error) {
+          return res
+            .status(400)
+            .json({ message: "Invalid numeros_calzado format" });
+        }
+      }
+
+      let parsedColores = product.colores;
+      if (req.body.colores) {
+        try {
+          parsedColores = JSON.parse(req.body.colores);
+          if (!Array.isArray(parsedColores)) {
+            return res
+              .status(400)
+              .json({ message: "colores must be an array of strings" });
+          }
+        } catch (error) {
+          return res.status(400).json({ message: "Invalid colores format" });
+        }
+      }
+
+      let parsedCustomFields = product.customFields;
+      if (req.body.customFields) {
+        try {
+          parsedCustomFields = JSON.parse(req.body.customFields);
+          if (
+            typeof parsedCustomFields !== "object" ||
+            Array.isArray(parsedCustomFields)
+          ) {
+            return res
+              .status(400)
+              .json({ message: "customFields must be an object" });
+          }
+        } catch (error) {
+          return res
+            .status(400)
+            .json({ message: "Invalid customFields format" });
+        }
+      }
+
+      let locationId = product.location;
+      if (req.body.location) {
+        if (!mongoose.Types.ObjectId.isValid(req.body.location)) {
+          return res.status(400).json({ message: "Invalid location ID" });
+        }
+        const locationExists = await Location.findById(req.body.location);
+        if (!locationExists) {
+          return res.status(404).json({ message: "Location not found" });
+        }
+        locationId = req.body.location;
+      }
+
+      let parsedDimensions = product.dimensions;
+      if (req.body.dimensions) {
+        try {
+          parsedDimensions = JSON.parse(req.body.dimensions);
+          if (
+            typeof parsedDimensions !== "object" ||
+            Array.isArray(parsedDimensions)
+          ) {
+            return res
+              .status(400)
+              .json({ message: "dimensions must be an object" });
+          }
+          if (
+            (parsedDimensions.length &&
+              typeof parsedDimensions.length !== "number") ||
+            (parsedDimensions.width &&
+              typeof parsedDimensions.width !== "number") ||
+            (parsedDimensions.height &&
+              typeof parsedDimensions.height !== "number")
+          ) {
+            return res
+              .status(400)
+              .json({ message: "Dimensions must be numbers" });
+          }
+        } catch (error) {
+          return res.status(400).json({ message: "Invalid dimensions format" });
+        }
+      }
+
+      let parsedWeight = product.weight;
+      if (req.body.weight) {
+        try {
+          parsedWeight = JSON.parse(req.body.weight);
+          if (typeof parsedWeight !== "object" || Array.isArray(parsedWeight)) {
+            return res
+              .status(400)
+              .json({ message: "weight must be an object" });
+          }
+          if (parsedWeight.value && typeof parsedWeight.value !== "number") {
+            return res
+              .status(400)
+              .json({ message: "Weight value must be a number" });
+          }
+        } catch (error) {
+          return res.status(400).json({ message: "Invalid weight format" });
+        }
+      }
+
+      let parsedFeatures = product.features;
+      if (req.body.features) {
+        try {
+          parsedFeatures = JSON.parse(req.body.features);
+          if (!Array.isArray(parsedFeatures)) {
+            return res
+              .status(400)
+              .json({ message: "features must be an array of strings" });
+          }
+        } catch (error) {
+          return res.status(400).json({ message: "Invalid features format" });
+        }
+      }
+
+      let parsedSpecifications = product.specifications;
+      if (req.body.specifications) {
+        try {
+          parsedSpecifications = JSON.parse(req.body.specifications);
+          if (
+            typeof parsedSpecifications !== "object" ||
+            Array.isArray(parsedSpecifications)
+          ) {
+            return res
+              .status(400)
+              .json({ message: "specifications must be an object" });
+          }
+        } catch (error) {
+          return res
+            .status(400)
+            .json({ message: "Invalid specifications format" });
+        }
+      }
+
+      let parsedWarranty = product.warranty;
+      if (req.body.warranty) {
+        try {
+          parsedWarranty = JSON.parse(req.body.warranty);
+          if (
+            typeof parsedWarranty !== "object" ||
+            Array.isArray(parsedWarranty)
+          ) {
+            return res
+              .status(400)
+              .json({ message: "warranty must be an object" });
+          }
+          if (
+            parsedWarranty.duration &&
+            typeof parsedWarranty.duration !== "number"
+          ) {
+            return res
+              .status(400)
+              .json({ message: "Warranty duration must be a number" });
+          }
+        } catch (error) {
+          return res.status(400).json({ message: "Invalid warranty format" });
+        }
+      }
+
       const updatedProduct = await Product.findByIdAndUpdate(
         id,
         {
           ...req.body,
           images: newImages,
           videos: newVideos,
-          customFields: req.body.customFields || product.customFields,
-          tallas: req.body.tallas || product.tallas,
-          numeros_calzado: req.body.numeros_calzado || product.numeros_calzado,
-          colores: req.body.colores || product.colores,
+          customFields: parsedCustomFields,
+          tallas: parsedTallas,
+          numeros_calzado: parsedNumerosCalzado,
+          colores: parsedColores,
+          brand: req.body.brand || product.brand,
+          condition: req.body.condition || product.condition,
+          year: req.body.year ? parseInt(req.body.year) : product.year,
+          location: locationId,
+          dimensions: parsedDimensions,
+          weight: parsedWeight,
+          features: parsedFeatures,
+          specifications: parsedSpecifications,
+          stock: req.body.stock ? parseInt(req.body.stock) : product.stock,
+          warranty: parsedWarranty,
         },
         { new: true }
-      );
+      ).populate("location", "name address city country");
       res.status(200).json(updatedProduct);
     } catch (error) {
       console.error("Error al actualizar el producto:", error);
@@ -368,8 +707,10 @@ export default {
         category,
         subcategory,
       })
-        .populate("category subcategory")
-        .populate("tienda");
+        .populate("category", "name")
+        .populate("subcategory", "name")
+        .populate("tienda", "name logo")
+        .populate("location", "name address city country");
 
       res.status(200).json({ success: true, products });
     } catch (error) {
@@ -380,6 +721,7 @@ export default {
       });
     }
   },
+
   searchProduct: async (req, res) => {
     try {
       const result = await Product.aggregate([
@@ -388,14 +730,19 @@ export default {
             index: "mbolo_app",
             text: {
               query: req.params.key,
-              path: {
-                wildcard: "*",
-              },
+              path: ["title", "description", "brand", "features"],
             },
           },
         },
       ]);
-      res.status(200).json(result);
+      // Populate after aggregation
+      const populatedResults = await Product.populate(result, [
+        { path: "tienda", select: "name logo" },
+        { path: "category", select: "name" },
+        { path: "subcategory", select: "name" },
+        { path: "location", select: "name address city country" },
+      ]);
+      res.status(200).json(populatedResults);
     } catch (error) {
       console.error("Error fetching products:", error);
       res.status(500).json({ message: "Failed to get the products" });
@@ -409,11 +756,13 @@ export default {
         return res.status(404).json({ message: "Producto no encontrado" });
       }
 
-      // Eliminar las imágenes y videos de Cloudinary si existen
+      // Delete images and videos from Cloudinary
       if (product.images && product.images.length > 0) {
         for (const img of product.images) {
           if (img.public_id) {
-            await deleteImage(img.public_id);
+            await deleteImage(img.public_id, "image").catch((err) =>
+              console.error("Error deleting image:", err)
+            );
             console.log(`Imagen eliminada: ${img.public_id}`);
           }
         }
@@ -421,13 +770,15 @@ export default {
       if (product.videos && product.videos.length > 0) {
         for (const vid of product.videos) {
           if (vid.public_id) {
-            await deleteImage(vid.public_id);
+            await deleteImage(vid.public_id, "video").catch((err) =>
+              console.error("Error deleting video:", err)
+            );
             console.log(`Video eliminado: ${vid.public_id}`);
           }
         }
       }
 
-      // Eliminar el producto de la tienda
+      // Remove product from tienda
       await Tienda.findByIdAndUpdate(product.tienda, {
         $pull: { products: product._id },
       });
@@ -542,31 +893,26 @@ export default {
     }
   },
 
-  
-  // New controller: Get products by tienda ID
   getProductsByTienda: async (req, res) => {
     try {
       const { tiendaId } = req.params;
 
-      // Validate tiendaId
       if (!mongoose.Types.ObjectId.isValid(tiendaId)) {
         return res.status(400).json({ message: "ID de tienda no válido" });
       }
 
-      // Verify tienda exists
       const tienda = await Tienda.findById(tiendaId);
       if (!tienda) {
         return res.status(404).json({ message: "Tienda no encontrada" });
       }
 
-      // Find products associated with the tienda
       const products = await Product.find({ tienda: tiendaId })
-        .populate("tienda", "name logo") // Populate tienda details (e.g., name, logo)
-        .populate("category", "name") // Populate category name
-        .populate("subcategory", "name") // Populate subcategory name
-        .sort({ createdAt: -1 }); // Sort by newest first
+        .populate("tienda", "name logo")
+        .populate("category", "name")
+        .populate("subcategory", "name")
+        .populate("location", "name address city country")
+        .sort({ createdAt: -1 });
 
-      // Check if products exist
       if (!products || products.length === 0) {
         return res.status(200).json({
           message: "No se encontraron productos para esta tienda",
