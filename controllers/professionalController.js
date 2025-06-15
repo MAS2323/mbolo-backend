@@ -379,3 +379,25 @@ export const deleteProfessional = async (req, res) => {
     res.status(500).json({ message: "Error del servidor" });
   }
 };
+
+// Get all professional accounts
+export const getAllProfessionals = async (req, res) => {
+  try {
+    const professionals = await Professional.find()
+      .populate("owner", "userName")
+      .populate("category", "name")
+      .populate("subcategory", "name")
+      .populate("address", "street city state country postalCode");
+
+    if (!professionals || professionals.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No se encontraron cuentas profesionales" });
+    }
+
+    res.status(200).json({ professionals });
+  } catch (error) {
+    console.error("Error al obtener todas las cuentas profesionales:", error);
+    res.status(500).json({ message: "Error del servidor" });
+  }
+};

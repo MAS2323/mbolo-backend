@@ -357,7 +357,7 @@ export default {
       });
 
       const savedProduct = await newProduct.save();
-      console.log("Product saved:", savedProduct._id);
+      // console.log("Product saved:", savedProduct._id);
 
       // Update Tienda with new product
       await Tienda.findByIdAndUpdate(tienda._id, {

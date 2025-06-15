@@ -18,5 +18,6 @@ router.put(
   professionalController.updateProfessional
 );
 router.delete("/:id", professionalController.deleteProfessional);
+router.get("/", professionalController.getAllProfessionals);
 
 export default router;
