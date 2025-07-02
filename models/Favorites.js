@@ -7,16 +7,16 @@ const FavoritesSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    // products: [
-    //   {
-    //     type: mongoose.Schema.Types.ObjectId,
-    //     ref: "Product",
-    //   },
-    // ],
+    products: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Product",
+      },
+    ],
     subcategories: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Subcategory",
+        ref: "Subcategoryp",
       },
     ],
   },
