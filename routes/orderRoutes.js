@@ -1,8 +1,16 @@
 import express from "express";
-const router = express.Router();
+import { uploadOrderMiddleware, multerErrorHandling } from "../utils/multer.js";
 import orderController from "../controllers/orderController.js";
 
-router.post("/", orderController.createOrder);
+const router = express.Router();
+
+// Use uploadOrderMiddleware for /orders route
+router.post(
+  "/",
+  uploadOrderMiddleware,
+  multerErrorHandling,
+  orderController.createOrder
+);
 router.get("/:id", orderController.getUserOrders);
 router.get("/order/:orderId", orderController.getOrderById);
 

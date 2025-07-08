@@ -7,12 +7,11 @@ import bannerRoutes from "./routes/banner.js";
 import productRouter from "./routes/productsRoutes.js";
 import userRouter from "./routes/user.js";
 import cartRouter from "./routes/cart.js";
-import orderRouter from "./routes/orderRoutes.js";
+import orderRoutes from "./routes/orderRoutes.js";
 import categoriesRouter from "./routes/categories.js";
 import favoritesRoutes from "./routes/favoritesRoutes.js";
 import professionalRoutes from "./routes/professionalRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
-import orderRoutes from "./routes/orderRoutes.js";
 import subcategoriesRouter from "./routes/subCategoryPRoutes.js";
 import appRoutes from "./routes/appRoutes.js";
 import locationRoutes from "./routes/locationRoutes.js";
@@ -55,10 +54,9 @@ app.use(express.urlencoded({ limit: "10mb", extended: true }));
 
 // Rutas de la aplicación
 app.use("/cart", cartRouter);
-app.use("/orders", orderRouter);
+app.use("/orders", orderRoutes);
 app.use("/favorites", favoritesRoutes);
 app.use("/messages", messageRoutes);
-app.use("/orders", orderRoutes);
 app.use("/subcategories", subcategoriesRouter);
 app.use("/categories", categoriesRouter);
 app.use("/banners", bannerRoutes);

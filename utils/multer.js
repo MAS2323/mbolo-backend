@@ -13,6 +13,7 @@ if (!fs.existsSync(uploadsDir)) {
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
+    console.log(`Saving file to: ${uploadsDir}`);
     cb(null, uploadsDir);
   },
   filename: function (req, file, cb) {
@@ -34,18 +35,18 @@ const fileFilter = (req, file, cb) => {
     "image/jpeg",
     "image/png",
     "image/gif",
-    "image/webp", // Added WebP support
+    "image/webp",
     "application/pdf",
     "video/mp4",
     "video/mpeg",
     "video/quicktime",
   ];
+  console.log(
+    `File upload attempt: MIME type=${file.mimetype}, filename=${file.originalname}, fieldname=${file.fieldname}`
+  );
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    // console.log(
-    //   `Invalid file upload attempt: MIME type=${file.mimetype}, filename=${file.originalname}`
-    // );
     cb(
       new Error(
         `Solo se permiten imágenes (jpg, png, gif, webp), PDFs y videos (mp4, mpeg, mov). Tipo recibido: ${file.mimetype}`
@@ -63,31 +64,57 @@ const upload = multer({
   },
 });
 
+// Middleware for store uploads (logo, banner, document)
 const uploadMiddleware = upload.fields([
-  { name: "images", maxCount: 10 },
-  { name: "videos", maxCount: 5 },
   { name: "logo", maxCount: 1 },
   { name: "banner", maxCount: 1 },
+  { name: "document", maxCount: 1 },
 ]);
+
+// Middleware for general uploads (images, videos)
+const uploadGeneralMiddleware = upload.fields([
+  { name: "images", maxCount: 10 },
+  { name: "videos", maxCount: 5 },
+]);
+
+// Middleware specifically for orders (paymentReceipt)
+const uploadOrderMiddleware = upload.single("paymentReceipt");
 
 const multerErrorHandling = (err, req, res, next) => {
   if (err instanceof multer.MulterError) {
+    console.error(
+      `Multer error: ${err.message}, code: ${err.code}, field: ${err.field}`
+    );
+    // Log all received fields (file and non-file) for debugging
+    console.log("Campos de archivo recibidos:", Object.keys(req.files || {}));
+    console.log("Campos de FormData recibidos:", Object.keys(req.body || {}));
     if (err.code === "LIMIT_FILE_SIZE") {
       return res.status(400).json({
         error: "El archivo es demasiado grande. Máximo 40MB.",
       });
     } else if (err.code === "LIMIT_UNEXPECTED_FILE") {
       return res.status(400).json({
-        error: "Número de archivos excede el límite permitido.",
+        error: `Campo de archivo inesperado: ${err.field || "Desconocido"}`,
+        receivedFileFields: Object.keys(req.files || {}),
+        receivedFormDataFields: Object.keys(req.body || {}),
       });
     } else {
-      return res.status(400).json({ error: err.message });
+      return res.status(400).json({
+        error: `Multer error: ${err.message}`,
+        field: err.field || "Desconocido",
+      });
     }
   } else if (err) {
+    console.error(`File filter error: ${err.message}`);
     return res.status(400).json({ error: err.message });
   }
   next();
 };
 
-export { uploadMiddleware, multerErrorHandling };
+export {
+  uploadMiddleware,
+  uploadGeneralMiddleware,
+  uploadOrderMiddleware,
+  multerErrorHandling,
+};
 export default upload;

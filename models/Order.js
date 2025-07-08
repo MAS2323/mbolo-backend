@@ -2,11 +2,13 @@ import mongoose from "mongoose";
 
 const orderSchema = new mongoose.Schema({
   userId: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
     required: true,
   },
   customerId: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
     required: true,
   },
   products: [
@@ -14,28 +16,45 @@ const orderSchema = new mongoose.Schema({
       productId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Product",
+        required: true,
       },
-      // quantity: {
-      //   type: Number,
-      //   required: true,
-      // },
-      // subtotal: {
-      //   type: Number,
-      //   required: true,
-      // },
+      quantity: {
+        type: Number,
+        required: true,
+        min: 1,
+      },
+      subtotal: {
+        type: Number,
+        required: true,
+      },
+      color: {
+        type: String,
+        default: null,
+      },
+      talla: {
+        type: String,
+        default: null,
+      },
     },
   ],
   total: {
     type: Number,
     required: true,
   },
-  delivery_status: {
-    type: String,
-    default: "pending",
-  },
   payment_status: {
     type: String,
-    required: true,
+    enum: ["pending", "completed", "failed"],
+    default: "pending",
+  },
+  paymentReceipt: {
+    url: {
+      type: String,
+      default: null,
+    },
+    public_id: {
+      type: String,
+      default: null,
+    },
   },
   createdAt: {
     type: Date,
@@ -43,5 +62,4 @@ const orderSchema = new mongoose.Schema({
   },
 });
 
-const Order = mongoose.model("Order", orderSchema);
-export default Order;
+export default mongoose.model("Order", orderSchema);
