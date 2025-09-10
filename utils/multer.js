@@ -8,7 +8,7 @@ const __dirname = path.dirname(__filename);
 
 const uploadsDir = path.join(__dirname, "..", "public", "Uploads");
 if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(UploadsDir, { recursive: true });
+  fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
 const storage = multer.diskStorage({
