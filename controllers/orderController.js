@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Order from "../models/Order.js";
 import Product from "../models/Products.js";
+import Tienda from "../models/Tienda.js"; // Import Tienda model
 import { uploadImage, deleteImage } from "../utils/cloudinary.js";
 import fs from "node:fs";
 
@@ -25,6 +26,7 @@ export default {
           select:
             "title supplier price images tallas colores numeros_calzado stock",
         })
+        .populate("storeId", "name paymentMethods") // Populate store details
         .sort({ createdAt: -1 })
         .lean();
 
@@ -55,7 +57,7 @@ export default {
         method: req.method,
         headers: req.headers,
         body: req.body,
-        file: req.file, // Use req.file for upload.single
+        file: req.file,
       });
 
       // Parse FormData JSON
@@ -73,7 +75,7 @@ export default {
         return res.status(400).json({ message: "Missing data field" });
       }
 
-      const { userId, customerId, products, total, payment_status } = body;
+      const { userId, name, contact, products, paymentMethod } = body;
 
       if (req.method !== "POST") {
         return res.status(405).json({ message: "Method not allowed" });
@@ -82,16 +84,47 @@ export default {
       if (!mongoose.Types.ObjectId.isValid(userId)) {
         return res.status(400).json({ message: "Invalid userId format" });
       }
-      if (!mongoose.Types.ObjectId.isValid(customerId)) {
-        return res.status(400).json({ message: "Invalid customerId format" });
+      if (!name || typeof name !== "string") {
+        return res.status(400).json({ message: "User name is required" });
+      }
+      if (!contact || typeof contact !== "string") {
+        return res.status(400).json({ message: "User contact is required" });
       }
       if (!products || !Array.isArray(products) || products.length === 0) {
         return res
           .status(400)
           .json({ message: "Products array is required and cannot be empty" });
       }
-      if (!["pending", "completed", "failed"].includes(payment_status)) {
-        return res.status(400).json({ message: "Invalid payment_status" });
+      if (!paymentMethod || typeof paymentMethod !== "object") {
+        return res.status(400).json({ message: "Payment method is required" });
+      }
+      const { name: paymentMethodName, accountNumber } = paymentMethod;
+      if (!paymentMethodName || !accountNumber) {
+        return res.status(400).json({
+          message: "Payment method name and account number are required",
+        });
+      }
+
+      // Verify store and payment method (assuming storeId is derived from product)
+      const product = await Product.findById(products[0].productId).select(
+        "tienda"
+      );
+      if (!product || !product.tienda) {
+        return res.status(404).json({ message: "Product or store not found" });
+      }
+      const storeId = product.tienda;
+      const store = await Tienda.findById(storeId).select("paymentMethods");
+      if (!store) {
+        return res.status(404).json({ message: "Store not found" });
+      }
+      const validPaymentMethod = store.paymentMethods.find(
+        (pm) =>
+          pm.name === paymentMethodName && pm.accountNumber === accountNumber
+      );
+      if (!validPaymentMethod) {
+        return res
+          .status(400)
+          .json({ message: "Invalid payment method selected" });
       }
 
       // Handle payment receipt upload
@@ -118,8 +151,6 @@ export default {
             .status(500)
             .json({ message: errorMessage, error: error.message });
         }
-      } else {
-        console.log("No payment receipt provided; proceeding without upload");
       }
 
       const session = await mongoose.startSession();
@@ -130,13 +161,16 @@ export default {
         const validatedProducts = [];
 
         for (const item of products) {
-          const { productId, quantity, color, talla } = item;
+          const { productId, quantity, subtotal, color, talla } = item;
 
           if (!mongoose.Types.ObjectId.isValid(productId)) {
             throw new Error(`Invalid productId: ${productId}`);
           }
           if (!Number.isInteger(quantity) || quantity < 1) {
             throw new Error(`Invalid quantity for product ${productId}`);
+          }
+          if (typeof subtotal !== "number" || subtotal <= 0) {
+            throw new Error(`Invalid subtotal for product ${productId}`);
           }
 
           const product = await Product.findById(productId).session(session);
@@ -167,7 +201,13 @@ export default {
             }
           }
 
-          const subtotal = product.price * quantity;
+          const expectedSubtotal = product.price * quantity;
+          if (Math.abs(subtotal - expectedSubtotal) > 0.01) {
+            throw new Error(
+              `Subtotal mismatch for product ${product.title}: provided ${subtotal}, expected ${expectedSubtotal}`
+            );
+          }
+
           validatedProducts.push({
             productId,
             quantity,
@@ -178,23 +218,26 @@ export default {
           calculatedTotal += subtotal;
         }
 
-        // Validate total only if provided
-        if (total && parseFloat(total) !== calculatedTotal) {
-          throw new Error(
-            `Total mismatch: provided ${total}, calculated ${calculatedTotal}`
-          );
-        }
-
         const newOrder = new Order({
           userId,
-          customerId,
+          name,
+          contact,
           products: validatedProducts,
-          total: calculatedTotal,
-          payment_status,
+          paymentMethod: {
+            name: paymentMethodName,
+            accountNumber,
+            image: validPaymentMethod.image,
+          },
           paymentReceipt,
         });
 
         await newOrder.save({ session });
+
+        // Update store's orders array
+        await Tienda.findByIdAndUpdate(storeId, {
+          $push: { orders: newOrder._id },
+        }).session(session);
+
         await session.commitTransaction();
 
         res
@@ -247,6 +290,7 @@ export default {
           path: "products.productId",
           select: "title supplier price images tallas colores numeros_calzado",
         })
+        .populate("storeId", "name paymentMethods")
         .lean();
 
       if (!order) {
@@ -262,6 +306,40 @@ export default {
       res
         .status(500)
         .json({ message: "Error fetching order", error: error.message });
+    }
+  },
+
+  getStorePaymentMethods: async (req, res) => {
+    const { storeId } = req.params;
+
+    try {
+      console.log("getStorePaymentMethods - Received storeId:", storeId);
+      if (!mongoose.Types.ObjectId.isValid(storeId)) {
+        return res.status(400).json({ message: "Invalid storeId format" });
+      }
+
+      const store = await Tienda.findById(storeId)
+        .select("paymentMethods name")
+        .lean();
+      if (!store) {
+        console.log(`Store not found for storeId: ${storeId}`);
+        return res.status(404).json({ message: "Store not found" });
+      }
+
+      console.log(
+        `Payment methods for store ${store.name}:`,
+        store.paymentMethods
+      );
+      res.status(200).json(store.paymentMethods || []);
+    } catch (error) {
+      console.error("Error fetching payment methods for storeId:", storeId, {
+        message: error.message,
+        stack: error.stack,
+      });
+      res.status(500).json({
+        message: "Error fetching payment methods",
+        error: error.message,
+      });
     }
   },
 };

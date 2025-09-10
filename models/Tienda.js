@@ -17,6 +17,7 @@ const tiendaSchema = new mongoose.Schema(
       required: true,
     },
     products: [{ type: mongoose.Schema.Types.ObjectId, ref: "Product" }],
+    orders: [{ type: mongoose.Schema.Types.ObjectId, ref: "Order" }], // Nuevo campo para pedidos
     logo: {
       public_id: { type: String, required: true },
       url: { type: String, required: true },

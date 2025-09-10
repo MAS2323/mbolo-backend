@@ -13,5 +13,9 @@ router.post(
 );
 router.get("/:id", orderController.getUserOrders);
 router.get("/order/:orderId", orderController.getOrderById);
+router.get(
+  "/stores/:storeId/payment-methods",
+  orderController.getStorePaymentMethods
+);
 
 export default router;

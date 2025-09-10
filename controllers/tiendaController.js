@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Tienda from "../models/Tienda.js";
 import User from "../models/User.js";
 import Location from "../models/Location.js";
-import Producto from "../models/Products.js"; // Ensure Producto model is imported
+import Producto from "../models/Products.js";
 import fs from "fs";
 import { uploadImage, deleteImage } from "../utils/cloudinary.js";
 
@@ -22,9 +22,34 @@ const PAYMENT_METHOD_IMAGES = {
   },
 };
 
+// Retry mechanism for Cloudinary uploads
+const uploadWithRetry = async (
+  fileBuffer,
+  folderName = "productos_mbolo",
+  retries = 3,
+  delay = 1000
+) => {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      console.log(`Attempt ${attempt} to upload file to folder: ${folderName}`);
+      const result = await uploadImage(fileBuffer, folderName);
+      console.log(`Upload successful: ${result.url}`);
+      return result;
+    } catch (error) {
+      console.error(`Upload attempt ${attempt} failed:`, error.message);
+      if (attempt === retries) throw error;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+};
+
+// Crear una tienda
 // Crear una tienda
 export const crearTienda = async (req, res) => {
   try {
+    console.log("Request body:", req.body);
+    console.log("Request files:", req.files);
+
     const {
       name,
       description,
@@ -47,6 +72,16 @@ export const crearTienda = async (req, res) => {
       !documentType ||
       !paymentMethods
     ) {
+      console.error("Missing required fields:", {
+        name,
+        description,
+        phone_number,
+        address,
+        specific_location,
+        owner,
+        documentType,
+        paymentMethods,
+      });
       return res
         .status(400)
         .json({ message: "Todos los campos son obligatorios" });
@@ -55,6 +90,7 @@ export const crearTienda = async (req, res) => {
     // Validate documentType
     const validDocumentTypes = ["DIP", "Pasaporte", "Permiso de Residencia"];
     if (!validDocumentTypes.includes(documentType)) {
+      console.error("Invalid documentType:", documentType);
       return res.status(400).json({ message: "Tipo de documento inválido" });
     }
 
@@ -62,12 +98,15 @@ export const crearTienda = async (req, res) => {
     let parsedPaymentMethods;
     try {
       parsedPaymentMethods = JSON.parse(paymentMethods);
+      console.log("Parsed payment methods:", parsedPaymentMethods);
       if (!Array.isArray(parsedPaymentMethods)) {
+        console.error("paymentMethods is not an array:", parsedPaymentMethods);
         return res
           .status(400)
           .json({ message: "paymentMethods debe ser un arreglo" });
       }
     } catch (error) {
+      console.error("Error parsing paymentMethods:", error.message);
       return res
         .status(400)
         .json({ message: "Formato de métodos de pago inválido" });
@@ -77,16 +116,19 @@ export const crearTienda = async (req, res) => {
     const validPaymentMethods = ["EcoBank", "BGFBank", "Muni-Dinero"];
     for (const method of parsedPaymentMethods) {
       if (!validPaymentMethods.includes(method.name)) {
+        console.error("Invalid payment method name:", method.name);
         return res
           .status(400)
           .json({ message: `Método de pago inválido: ${method.name}` });
       }
       if (!method.accountNumber) {
+        console.error("Missing accountNumber for method:", method.name);
         return res
           .status(400)
           .json({ message: `Número de cuenta requerido para ${method.name}` });
       }
       if (!PAYMENT_METHOD_IMAGES[method.name]) {
+        console.error("No predefined image for method:", method.name);
         return res.status(400).json({
           message: `No se encontró imagen predefinida para ${method.name}`,
         });
@@ -95,20 +137,24 @@ export const crearTienda = async (req, res) => {
 
     // Validate owner
     if (!mongoose.Types.ObjectId.isValid(owner)) {
+      console.error("Invalid owner ID:", owner);
       return res.status(400).json({ message: "ID de usuario inválido" });
     }
     const user = await User.findById(owner);
     if (!user) {
+      console.error("User not found for owner ID:", owner);
       return res.status(404).json({ message: "Usuario no encontrado" });
     }
 
     // Validate address
     console.log("Validating address ID:", address);
     if (!mongoose.Types.ObjectId.isValid(address)) {
+      console.error("Invalid address ID:", address);
       return res.status(400).json({ message: "ID de ciudad inválido" });
     }
     const location = await Location.findOne({ _id: address, type: "City" });
     if (!location) {
+      console.error("Location not found or not a city:", address);
       return res
         .status(404)
         .json({ message: "Ciudad no encontrada o no es una ciudad válida" });
@@ -117,6 +163,7 @@ export const crearTienda = async (req, res) => {
     // Check for existing store
     const existingStore = await Tienda.findOne({ owner });
     if (existingStore) {
+      console.error("User already has a store:", owner);
       return res
         .status(400)
         .json({ message: "El usuario ya tiene una tienda" });
@@ -128,35 +175,46 @@ export const crearTienda = async (req, res) => {
     const documentFiles = req.files?.document || [];
 
     if (!logoFile || !bannerFile) {
+      console.error("Missing logo or banner:", { logoFile, bannerFile });
       return res
         .status(400)
         .json({ message: "Logo y banner son obligatorios" });
     }
     if (documentFiles.length < 1 || documentFiles.length > 2) {
+      console.error("Invalid number of document files:", documentFiles.length);
       return res.status(400).json({
         message: "Se requiere entre 1 y 2 imágenes para el documento",
       });
     }
 
-    // Upload files to Cloudinary
+    // Upload files to Cloudinary sequentially using file paths
     console.log("Uploading files to Cloudinary:", {
       logo: logoFile?.path,
       banner: bannerFile?.path,
       documents: documentFiles.map((file) => file.path),
     });
-    const logoResult = await uploadImage(logoFile.path);
-    const bannerResult = await uploadImage(bannerFile.path);
-    const documentResults = await Promise.all(
-      documentFiles.map((file) => uploadImage(file.path))
+    const logoResult = await uploadWithRetry(logoFile.path, "productos_mbolo");
+    const bannerResult = await uploadWithRetry(
+      bannerFile.path,
+      "productos_mbolo"
     );
+    const documentResults = [];
+    for (const file of documentFiles) {
+      const result = await uploadWithRetry(
+        file.path,
+        "productos_mbolo/documents"
+      );
+      documentResults.push(result);
+    }
 
     // Clean up temporary files
     [logoFile, bannerFile, ...documentFiles].forEach((file) => {
       if (file && fs.existsSync(file.path)) {
         try {
           fs.unlinkSync(file.path);
+          console.log(`Deleted temporary file: ${file.path}`);
         } catch (err) {
-          console.error(`Error eliminando archivo temporal ${file.path}:`, err);
+          console.error(`Error deleting temporary file ${file.path}:`, err);
         }
       }
     });
@@ -184,10 +242,11 @@ export const crearTienda = async (req, res) => {
           public_id: PAYMENT_METHOD_IMAGES[method.name].public_id,
         },
       })),
-      products: [], // Initialize empty products array
+      products: [],
     });
 
     await tienda.save();
+    console.log("Store saved successfully:", tienda._id);
 
     // Populate response
     const tiendaPoblada = await Tienda.findById(tienda._id)
@@ -199,7 +258,8 @@ export const crearTienda = async (req, res) => {
       .status(201)
       .json({ message: "Tienda creada exitosamente", tienda: tiendaPoblada });
   } catch (error) {
-    console.error("Error creando tienda:", error);
+    console.error("Error creating store:", error);
+    // Clean up any remaining temporary files
     if (req.files) {
       Object.values(req.files)
         .flat()
@@ -207,11 +267,11 @@ export const crearTienda = async (req, res) => {
           if (file && fs.existsSync(file.path)) {
             try {
               fs.unlinkSync(file.path);
-            } catch (err) {
-              console.error(
-                `Error eliminando archivo temporal ${file.path}:`,
-                err
+              console.log(
+                `Deleted temporary file in error handler: ${file.path}`
               );
+            } catch (err) {
+              console.error(`Error deleting temporary file ${file.path}:`, err);
             }
           }
         });
@@ -225,57 +285,6 @@ export const crearTienda = async (req, res) => {
     });
   }
 };
-
-// Obtener una tienda por su ID
-export const obtenerTienda = async (req, res) => {
-  try {
-    const { id } = req.params;
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: "ID de tienda inválido" });
-    }
-
-    const tienda = await Tienda.findById(id)
-      .populate("owner", "userName")
-      .populate("products", "title price")
-      .populate("address", "name");
-
-    if (!tienda) {
-      return res.status(404).json({ message: "Tienda no encontrada" });
-    }
-
-    res.status(200).json(tienda);
-  } catch (error) {
-    console.error("Error al obtener la tienda:", error);
-    res.status(500).json({
-      message: "Error al obtener la tienda",
-      error:
-        process.env.NODE_ENV === "development"
-          ? error.message
-          : "Contacta al soporte técnico",
-    });
-  }
-};
-
-// Obtener todas las tiendas
-export const obtenerTodasTiendas = async (req, res) => {
-  try {
-    const tiendas = await Tienda.find()
-      .populate("owner", "userName")
-      .populate("products", "title price sales")
-      .populate("address", "name");
-    res.status(200).json(tiendas);
-  } catch (error) {
-    console.error("Error al obtener las tiendas:", error);
-    res.status(500).json({
-      message: "Error al obtener las tiendas",
-      error:
-        process.env.NODE_ENV === "development"
-          ? error.message
-          : "Contacta al soporte técnico",
-    });
-  }
-};
-
 // Actualizar una tienda
 export const actualizarTienda = async (req, res) => {
   try {
@@ -334,7 +343,7 @@ export const actualizarTienda = async (req, res) => {
     }
 
     // Validate payment methods
-    const validPaymentMethods = ["EcoBank", "BGFBank", "Muni-Dinero"];
+    const validPaymentMethods = ["EcoBank", "BGFBank", "Hawkins"];
     for (const method of parsedPaymentMethods) {
       if (!validPaymentMethods.includes(method.name)) {
         return res
@@ -415,46 +424,59 @@ export const actualizarTienda = async (req, res) => {
 
     // Handle logo
     if (logoFile) {
-      console.log("Uploading logo to Cloudinary:", logoFile.path);
-      const logoResult = await uploadImage(logoFile.path);
-      updateData.logo = {
-        url: logoResult.url,
-        public_id: logoResult.public_id,
-      };
-      if (tienda.logo.public_id) {
-        await deleteImage(tienda.logo.public_id);
-      }
-      if (fs.existsSync(logoFile.path)) {
-        try {
-          fs.unlinkSync(logoFile.path);
-        } catch (err) {
-          console.error(
-            `Error eliminando archivo temporal ${logoFile.path}:`,
-            err
-          );
+      console.log("Uploading logo to Cloudinary:", logoFile.originalname);
+      try {
+        const logoResult = await uploadWithRetry(logoFile, "productos_mbolo");
+        updateData.logo = {
+          url: logoResult.url,
+          public_id: logoResult.public_id,
+        };
+        if (tienda.logo.public_id) {
+          await deleteImage(tienda.logo.public_id);
+        }
+      } catch (error) {
+        console.error("Error uploading logo:", error);
+        throw new Error(`Failed to upload logo: ${error.message}`);
+      } finally {
+        // Clean up temporary file
+        if (logoFile?.path) {
+          try {
+            await fs.unlink(logoFile.path);
+            console.log("Deleted temporary logo file:", logoFile.path);
+          } catch (err) {
+            console.error("Error deleting temporary logo file:", err.message);
+          }
         }
       }
     }
 
     // Handle banner
     if (bannerFile) {
-      console.log("Uploading banner to Cloudinary:", bannerFile.path);
-      const bannerResult = await uploadImage(bannerFile.path);
-      updateData.banner = {
-        url: bannerResult.url,
-        public_id: bannerResult.public_id,
-      };
-      if (tienda.banner.public_id) {
-        await deleteImage(tienda.banner.public_id);
-      }
-      if (fs.existsSync(bannerFile.path)) {
-        try {
-          fs.unlinkSync(bannerFile.path);
-        } catch (err) {
-          console.error(
-            `Error eliminando archivo temporal ${bannerFile.path}:`,
-            err
-          );
+      console.log("Uploading banner to Cloudinary:", bannerFile.originalname);
+      try {
+        const bannerResult = await uploadWithRetry(
+          bannerFile,
+          "productos_mbolo"
+        );
+        updateData.banner = {
+          url: bannerResult.url,
+          public_id: bannerResult.public_id,
+        };
+        if (tienda.banner.public_id) {
+          await deleteImage(tienda.banner.public_id);
+        }
+      } catch (error) {
+        console.error("Error uploading banner:", error);
+        throw new Error(`Failed to upload banner: ${error.message}`);
+      } finally {
+        // Clean up temporary file
+        if (bannerFile?.path) {
+          try {
+            await fs.unlink(bannerFile.path);
+            console.log("Deleted temporary banner file:", bannerFile.path);
+          } catch (err) {
+            console.error("Error deleting temporary banner file:", err.message);
+          }
         }
       }
     }
@@ -463,11 +485,21 @@ export const actualizarTienda = async (req, res) => {
     if (documentFiles.length > 0) {
       console.log(
         "Uploading documents to Cloudinary:",
-        documentFiles.map((file) => file.path)
+        documentFiles.map((file) => file.originalname)
       );
-      const documentResults = await Promise.all(
-        documentFiles.map((file) => uploadImage(file.path))
-      );
+      const documentResults = [];
+      for (const file of documentFiles) {
+        try {
+          const result = await uploadWithRetry(
+            file,
+            "productos_mbolo/documents"
+          );
+          documentResults.push(result);
+        } catch (error) {
+          console.error("Error uploading document:", error);
+          throw new Error(`Failed to upload document: ${error.message}`);
+        }
+      }
       updateData.document = documentResults.map((result) => ({
         type: documentType,
         url: result.url,
@@ -479,20 +511,21 @@ export const actualizarTienda = async (req, res) => {
           await deleteImage(doc.public_id);
         }
       }
-      documentFiles.forEach((file) => {
-        if (fs.existsSync(file.path)) {
+      // Clean up temporary document files
+      for (const file of documentFiles) {
+        if (file?.path) {
           try {
-            fs.unlinkSync(file.path);
+            await fs.unlink(file.path);
+            console.log("Deleted temporary document file:", file.path);
           } catch (err) {
             console.error(
-              `Error eliminando archivo temporal ${file.path}:`,
-              err
+              "Error deleting temporary document file:",
+              err.message
             );
           }
         }
-      });
+      }
     } else if (documentType !== tienda.document[0]?.type) {
-      // Update document type if no new images are uploaded
       updateData.document = tienda.document.map((doc) => ({
         ...doc,
         type: documentType,
@@ -516,24 +549,57 @@ export const actualizarTienda = async (req, res) => {
     });
   } catch (error) {
     console.error("Error actualizando tienda:", error);
-    if (req.files) {
-      Object.values(req.files)
-        .flat()
-        .forEach((file) => {
-          if (file && fs.existsSync(file.path)) {
-            try {
-              fs.unlinkSync(file.path);
-            } catch (err) {
-              console.error(
-                `Error eliminando archivo temporal ${file.path}:`,
-                err
-              );
-            }
-          }
-        });
-    }
     res.status(500).json({
       message: "Error al actualizar la tienda",
+      error:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Contacta al soporte técnico",
+    });
+  }
+};
+// Obtener una tienda por su ID
+export const obtenerTienda = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "ID de tienda inválido" });
+    }
+
+    const tienda = await Tienda.findById(id)
+      .populate("owner", "userName")
+      .populate("products", "title price")
+      .populate("address", "name");
+
+    if (!tienda) {
+      return res.status(404).json({ message: "Tienda no encontrada" });
+    }
+
+    res.status(200).json(tienda);
+  } catch (error) {
+    console.error("Error al obtener la tienda:", error);
+    res.status(500).json({
+      message: "Error al obtener la tienda",
+      error:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Contacta al soporte técnico",
+    });
+  }
+};
+
+// Obtener todas las tiendas
+export const obtenerTodasTiendas = async (req, res) => {
+  try {
+    const tiendas = await Tienda.find()
+      .populate("owner", "userName")
+      .populate("products", "title price sales")
+      .populate("address", "name");
+    res.status(200).json(tiendas);
+  } catch (error) {
+    console.error("Error al obtener las tiendas:", error);
+    res.status(500).json({
+      message: "Error al obtener las tiendas",
       error:
         process.env.NODE_ENV === "development"
           ? error.message
@@ -602,7 +668,7 @@ export const obtenerTiendaPorUsuario = async (req, res) => {
       .populate({
         path: "products",
         select: "title price",
-        match: { deleted: { $ne: true } }, // Only populate non-deleted products
+        match: { deleted: { $ne: true } },
       })
       .populate({
         path: "address",
@@ -653,7 +719,7 @@ export const addProductToTienda = async (req, res) => {
 
     const tienda = await Tienda.findByIdAndUpdate(
       tiendaId,
-      { $addToSet: { products: productId } }, // Use $addToSet to avoid duplicates
+      { $addToSet: { products: productId } },
       { new: true }
     );
 

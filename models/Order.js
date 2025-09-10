@@ -11,6 +11,11 @@ const orderSchema = new mongoose.Schema({
     ref: "User",
     required: true,
   },
+  storeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Tienda",
+    required: true,
+  },
   products: [
     {
       productId: {
@@ -54,6 +59,14 @@ const orderSchema = new mongoose.Schema({
     public_id: {
       type: String,
       default: null,
+    },
+  },
+  paymentMethod: {
+    name: { type: String, required: true },
+    accountNumber: { type: String, required: true },
+    image: {
+      public_id: { type: String, required: true },
+      url: { type: String, required: true },
     },
   },
   createdAt: {

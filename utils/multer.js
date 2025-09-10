@@ -68,7 +68,7 @@ const upload = multer({
 const uploadMiddleware = upload.fields([
   { name: "logo", maxCount: 1 },
   { name: "banner", maxCount: 1 },
-  { name: "document", maxCount: 1 },
+  { name: "document", maxCount: 2 },
 ]);
 
 // Middleware for general uploads (images, videos)
